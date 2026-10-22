@@ -1,0 +1,34 @@
+{
+  "temp": {
+    "label": "Température corporelle",
+    "unit": "°C",
+    "terrestrial": { "center": 36.8, "tolerance": 0.6 },
+    "spatialOffset": 1.0,
+    "spatialSource": "Stahn et al., 2017 — élévation d'environ 1 °C en vol",
+    "measurementVariance": 0.04
+  },
+  "hr": {
+    "label": "Fréquence cardiaque",
+    "unit": "bpm",
+    "terrestrial": { "center": 72, "tolerance": 12 },
+    "spatialOffset": 0,
+    "spatialSource": "Pas d'offset générique retenu — dépend trop du contexte individuel",
+    "measurementVariance": 16
+  },
+  "co2": {
+    "label": "CO2 cabine",
+    "unit": "%",
+    "terrestrial": { "center": 0.3, "tolerance": 0.1 },
+    "spatialOffset": 0.1,
+    "spatialSource": "Law et al., 2014 — tolérance cabine plus large qu'au sol, lien avec céphalées au-delà",
+    "measurementVariance": 0.01
+  },
+  "spo2": {
+    "label": "Saturation en oxygène",
+    "unit": "%",
+    "terrestrial": { "center": 97.5, "tolerance": 1.5 },
+    "spatialOffset": 0,
+    "spatialSource": "Pas d'effet spatial générique documenté retenu",
+    "measurementVariance": 1
+  }
+}

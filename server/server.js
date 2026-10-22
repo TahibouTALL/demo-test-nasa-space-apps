@@ -8,7 +8,7 @@ const { load, save, reset } = require("./store");
 const { processMeasurement } = require("./pipeline");
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const PUBLIC_DIR = path.join(__dirname, "..", "docs");
 const METRICS = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "metrics.json"), "utf8"));
 const SCENARIOS = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "scenarios.json"), "utf8"));
 

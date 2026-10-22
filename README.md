@@ -8,13 +8,26 @@ aux conditions réelles du vol (microgravité, isolement, délai de
 communication), plutôt que d'appliquer des repères conçus pour un corps qui
 reste sur Terre.
 
-## Lancer le projet en local
+## Voir le projet en ligne
+
+Le dossier `docs/` est un site statique autonome (GitHub Pages : Settings →
+Pages → Source = branche `main`, dossier `/docs`) : la logique de calcul
+tourne entièrement dans le navigateur via `docs/engine.js`, sans serveur.
+C'est le même code que celui du serveur Node, porté tel quel.
+
+Lien : `https://tahiboutall.github.io/demo-test-nasa-space-apps/`
+(l'état repart de zéro à chaque rechargement — ce n'est pas persisté entre
+deux visites, contrairement à la version serveur ci-dessous).
+
+## Lancer la version serveur en local
 
 ```bash
 npm start
 ```
 
-Puis ouvrir `http://localhost:3000`.
+Puis ouvrir `http://localhost:3000`. Cette version persiste le journal de
+mission et la file de transmission dans un fichier, et expose une vraie API
+HTTP (utile pour brancher autre chose dessus plus tard).
 
 Lancer les tests :
 
@@ -25,7 +38,9 @@ npm test
 ## Structure
 
 ```
-public/            interface (présentation + démonstrateur)
+docs/              site statique (GitHub Pages) — présentation + démonstrateur
+  engine.js          moteur de calcul porté pour le navigateur (sans serveur)
+  data/                copies des données utilisées pour le calcul côté client
 server/
   server.js        API HTTP (Node.js natif, sans dépendance externe)
   pipeline.js       chaîne de traitement d'une mesure (F3 → F6)
@@ -41,6 +56,10 @@ server/
   server.test.js     tests (node:assert, sans dépendance)
 ```
 
+`docs/engine.js` et `server/lib/*.js` contiennent le même calcul : le second
+est la version testée (`npm test`), le premier en est le port navigateur
+pour permettre un déploiement statique sur GitHub Pages.
+
 ## Ce qui est réellement implémenté
 
 - Mise à jour bayésienne réelle de la référence personnelle de chaque
@@ -53,7 +72,8 @@ server/
   l'historique réel du journal).
 - Journal de mission et file de transmission persistés (fichier JSON).
 - Les 6 scénarios de démonstration rejouent la vraie chaîne de traitement
-  (`POST /api/scenarios/:id/replay`) — rien n'est renvoyé en dur.
+  (`POST /api/scenarios/:id/replay` côté serveur, `AuraEngine.processMeasurement`
+  côté navigateur) — rien n'est renvoyé en dur.
 
 ## Ce qui ne l'est pas (périmètre volontairement laissé de côté)
 
