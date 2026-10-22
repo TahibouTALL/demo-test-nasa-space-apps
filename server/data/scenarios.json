@@ -1,0 +1,64 @@
+[
+  {
+    "id": "s1",
+    "tag": "AVANT LE VOL",
+    "title": "Planification pessimiste vers Mars",
+    "type": "event",
+    "crew": "Équipage complet",
+    "journal": "Planification — trousse médicale dimensionnée sur l'hypothèse pessimiste (modèle IMM).",
+    "note": "Stock recommandé : +34 % sur les antalgiques par rapport à une planification moyenne, pour couvrir le scénario défavorable sur 9 mois sans réapprovisionnement."
+  },
+  {
+    "id": "s2",
+    "tag": "J+12",
+    "title": "Fausse fièvre à 38,1 °C",
+    "type": "measurement",
+    "astronautId": "a2",
+    "metric": "temp",
+    "value": 38.1,
+    "context": { "highStress": false },
+    "note": "Comparer à ce que donnerait une norme terrestre pure."
+  },
+  {
+    "id": "s3",
+    "tag": "J+30",
+    "title": "Mal de tête et CO2",
+    "type": "measurement",
+    "astronautId": "a4",
+    "metric": "co2",
+    "value": 0.6,
+    "context": { "highStress": false },
+    "note": "CO2 cabine en hausse depuis plusieurs heures."
+  },
+  {
+    "id": "s4",
+    "tag": "J+58",
+    "title": "Éruption solaire",
+    "type": "event",
+    "crew": "Équipage complet",
+    "emergency": true,
+    "journal": "MODE URGENCE — éruption solaire détectée. Repli zone protégée ordonné. Transmission prioritaire envoyée au sol.",
+    "note": "Message prioritaire envoyé malgré la latence de communication ; action déjà engagée côté équipage sans attendre la réponse."
+  },
+  {
+    "id": "s5",
+    "tag": "CHAQUE SEMAINE",
+    "title": "Conférence médicale IA",
+    "type": "event",
+    "crew": "Équipage complet",
+    "journal": "Synthèse hebdomadaire générée — points d'attention identifiés à partir du journal de mission.",
+    "note": "Voir /api/journal pour la synthèse réelle calculée à partir des événements enregistrés."
+  },
+  {
+    "id": "s6",
+    "tag": "J+140",
+    "title": "Conjonction solaire",
+    "type": "measurement",
+    "astronautId": "a1",
+    "metric": "hr",
+    "value": 70,
+    "context": { "highStress": true },
+    "linkDown": true,
+    "note": "Liaison coupée : les messages produits sont mis en file d'attente locale."
+  }
+]

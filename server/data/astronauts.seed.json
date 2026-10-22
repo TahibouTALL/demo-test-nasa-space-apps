@@ -1,0 +1,42 @@
+[
+  {
+    "id": "a1",
+    "name": "Astronaute 1",
+    "baseline": {
+      "temp": { "mu": 36.7, "variance": 0.09 },
+      "hr":   { "mu": 68,   "variance": 25 },
+      "co2":  { "mu": 0.3,  "variance": 0.01 },
+      "spo2": { "mu": 98,   "variance": 1 }
+    }
+  },
+  {
+    "id": "a2",
+    "name": "Astronaute 2",
+    "baseline": {
+      "temp": { "mu": 36.9, "variance": 0.09 },
+      "hr":   { "mu": 74,   "variance": 25 },
+      "co2":  { "mu": 0.3,  "variance": 0.01 },
+      "spo2": { "mu": 97,   "variance": 1 }
+    }
+  },
+  {
+    "id": "a3",
+    "name": "Astronaute 3",
+    "baseline": {
+      "temp": { "mu": 36.8, "variance": 0.09 },
+      "hr":   { "mu": 70,   "variance": 25 },
+      "co2":  { "mu": 0.3,  "variance": 0.01 },
+      "spo2": { "mu": 98,   "variance": 1 }
+    }
+  },
+  {
+    "id": "a4",
+    "name": "Astronaute 4",
+    "baseline": {
+      "temp": { "mu": 36.6, "variance": 0.09 },
+      "hr":   { "mu": 71,   "variance": 25 },
+      "co2":  { "mu": 0.3,  "variance": 0.01 },
+      "spo2": { "mu": 97,   "variance": 1 }
+    }
+  }
+]
