@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURA — Démonstrateur</title>
+<meta name="description" content="Démonstrateur interactif d'AURA : vue équipage, vue médecin, et six scénarios de mission, avec données simulées.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F3;
+    --bg-panel:#F8F9FA;
+    --ink:#10223A;
+    --ink-soft:#4C5A6E;
+    --line:#CDD4DB;
+    --rust:#B8491F;
+    --rust-soft:#FBF4EF;
+    --amber:#B5791A;
+    --amber-soft:#FBF0DD;
+    --slate:#2E3B4E;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+    --head:'Archivo', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--rust);}
+  button{font-family:inherit; cursor:pointer;}
+  :focus-visible{outline:2px solid var(--rust); outline-offset:2px;}
+
+  .banner{
+    background:var(--slate);
+    color:#E7EAEE;
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:9px 20px;
+    text-align:center;
+  }
+  .banner strong{color:#fff;}
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 28px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{
+    font-family:var(--head);
+    font-weight:700;
+    font-size:1.2rem;
+    letter-spacing:-0.01em;
+  }
+  .brand a{color:var(--ink); text-decoration:none; font-size:0.85rem; margin-left:14px; font-weight:400; font-family:var(--sans);}
+  .tabs{display:flex; gap:4px;}
+  .tab-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:8px 16px;
+    border-radius:3px;
+  }
+  .tab-btn.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+
+  main{padding:28px; max-width:1180px; margin:0 auto;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  .layout{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    gap:24px;
+  }
+  @media (max-width:860px){ .layout{grid-template-columns:1fr;} }
+
+  .scn-list{display:flex; flex-direction:column; gap:8px;}
+  .scn-btn{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+    text-align:left;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    padding:12px 14px;
+    border-radius:3px;
+  }
+  .scn-tag{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+  .scn-title{font-size:14.5px; color:var(--ink);}
+  .scn-btn.active{
+    border-color:var(--rust);
+    background:var(--rust-soft);
+  }
+  .scn-btn.active .scn-tag{color:var(--rust);}
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    padding:24px;
+  }
+  .panel + .panel{margin-top:18px;}
+  .panel h2{
+    font-family:var(--head);
+    font-weight:600;
+    font-size:1.1rem;
+    margin:0 0 16px;
+  }
+  .panel h3{
+    font-family:var(--head);
+    font-weight:600;
+    font-size:1rem;
+    margin:0 0 8px;
+  }
+  .panel p{margin:0; color:var(--ink-soft); font-size:14.5px;}
+
+  #crew-vitals{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:18px;
+  }
+  @media (max-width:640px){ #crew-vitals{grid-template-columns:repeat(2,1fr);} }
+  #crew-vitals > div{
+    background:#fff;
+    padding:14px 16px;
+  }
+  #crew-vitals .k{font-family:var(--mono); font-size:11px; color:var(--ink-soft); display:block; margin-bottom:6px;}
+  #crew-vitals .v{font-family:var(--mono); font-size:18px;}
+  .empty-note{font-size:14px; color:var(--ink-soft); font-style:italic;}
+
+  #crew-norm{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    border:1px solid var(--line);
+    margin-bottom:18px;
+  }
+  @media (max-width:640px){ #crew-norm{grid-template-columns:1fr;} }
+  #crew-norm > div{padding:14px 16px; background:#fff;}
+  #crew-norm .today{border-right:1px solid var(--line);}
+  #crew-norm .aura{background:var(--rust-soft);}
+  #crew-norm .label{font-family:var(--mono); font-size:11px; color:var(--ink-soft); display:block; margin-bottom:6px;}
+  #crew-norm .aura .label{color:var(--rust);}
+  #crew-norm p{color:var(--ink); font-size:14.5px;}
+
+  .alert-banner{
+    font-family:var(--mono);
+    font-size:13px;
+    padding:10px 14px;
+    border-radius:3px;
+    margin-bottom:18px;
+    display:inline-block;
+  }
+  .alert-banner.none{background:#E7EEE7; color:#2E5B3E;}
+  .alert-banner.watch{background:var(--amber-soft); color:var(--amber);}
+  .alert-banner.critical{background:var(--rust); color:#fff;}
+
+  #crew-action h3{margin-bottom:6px;}
+  #crew-action p{color:var(--ink);}
+
+  .doctor-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:10px;
+  }
+  .doctor-head span{font-family:var(--mono); font-size:12px; color:var(--rust);}
+
+  .journal-log{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .journal-line{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:8px 0;
+    border-top:1px solid var(--line);
+  }
+  .journal-line:first-child{border-top:none; color:var(--ink);}
+
+  /* About tab */
+  #panel-apropos .about-wrap{max-width:720px;}
+  #panel-apropos p{color:var(--ink); font-size:15px; margin-bottom:14px;}
+  #panel-apropos a{display:inline-block; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <strong>DÉMONSTRATEUR</strong> — interface illustrative avec données simulées, non connectée à des capteurs réels
+</div>
+
+<div class="topbar">
+  <div class="brand">AURA <a href="index.html">← retour à la présentation</a></div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="equipage">Vue équipage</button>
+    <button class="tab-btn" data-tab="medecin">Vue médecin</button>
+    <button class="tab-btn" data-tab="apropos">À propos</button>
+  </div>
+</div>
+
+<main>
+  <div class="layout">
+    <aside>
+      <h3 style="font-family:var(--head); font-size:0.95rem; margin:0 0 12px;">Scénarios</h3>
+      <div class="scn-list" id="scn-list"></div>
+    </aside>
+
+    <div>
+      <div class="tab-panel active" id="panel-equipage">
+        <div class="panel">
+          <h2>Mesures actuelles</h2>
+          <div id="crew-vitals"></div>
+          <div id="crew-norm"></div>
+          <div id="crew-alert" class="alert-banner none">Aucune alerte en cours</div>
+          <div id="crew-action"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-medecin">
+        <div class="panel">
+          <div class="doctor-head">
+            <h2 style="margin:0;">Écran du médecin</h2>
+            <span id="doctor-tag"></span>
+          </div>
+          <p style="margin-bottom:6px; font-size:13px; color:var(--ink-soft);">Équipage concerné</p>
+          <h3 id="doctor-crew"></h3>
+          <p id="doctor-note" style="margin-top:12px;"></p>
+        </div>
+        <div class="panel">
+          <h2>Journal de mission</h2>
+          <div class="journal-log" id="journal-log"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-apropos">
+        <div class="panel about-wrap">
+          <h2>À propos de ce démonstrateur</h2>
+          <p>Cette page simule l'interface d'AURA à partir de six scénarios figés à l'avance, décrits dans le document de présentation. Elle ne lit aucun capteur, n'appelle aucun modèle d'intelligence artificielle et ne transmet aucune donnée : c'est une maquette de conception destinée à montrer, avant le hackathon, à quoi pourrait ressembler l'expérience d'un astronaute et d'un médecin au sol.</p>
+          <p>Le modèle de normes à cinq couches, l'architecture à deux étages et les sources scientifiques citées sont détaillés dans la page de présentation.</p>
+          <a href="index.html">Voir la présentation complète →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
