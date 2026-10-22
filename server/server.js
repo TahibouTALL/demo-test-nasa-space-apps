@@ -1,150 +1,84 @@
-// Serveur AURA — API + fichiers statiques. Node.js natif (sans dépendance
-// externe) pour rester facile à installer et à auditer.
-
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const { load, save, reset } = require("./store");
-const { processMeasurement } = require("./pipeline");
+// Serveur AURA facultatif : sert la plateforme (docs/) et expose une petite
+// API HTTP pour brancher plus tard de vrais capteurs. Il réutilise exactement
+// le même moteur que le navigateur (docs/js), sans dépendance externe.
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const S = require('../docs/js/store.js');
+const E = require('../docs/js/engine.js');
+const D = require('../docs/js/data.js');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, "..", "docs");
-const METRICS = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "metrics.json"), "utf8"));
-const SCENARIOS = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "scenarios.json"), "utf8"));
+const ROOT = path.join(__dirname, '..', 'docs');
+const STATE_FILE = path.join(__dirname, 'etat.json');
+const disk = {
+  getItem: () => (fs.existsSync(STATE_FILE) ? fs.readFileSync(STATE_FILE, 'utf8') : null),
+  setItem: (k, v) => fs.writeFileSync(STATE_FILE, v),
+  removeItem: () => { if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE); }
+};
+let state = S.load(disk) || S.createState({});
+S.save(state, disk);
 
-let state = load();
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain' };
 
-function sendJson(res, status, body) {
-  const payload = JSON.stringify(body, null, 2);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload)
-  });
-  res.end(payload);
+function json(res, code, body) {
+  const out = JSON.stringify(body, null, 2);
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(out);
 }
-
-function serveStatic(req, res) {
-  let filePath = path.join(PUBLIC_DIR, req.url === "/" ? "index.html" : req.url.split("?")[0]);
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403); res.end("Interdit"); return;
-  }
-  fs.readFile(filePath, (err, data) => {
-    if (err) { res.writeHead(404); res.end("Introuvable"); return; }
-    const ext = path.extname(filePath);
-    const types = { ".html": "text/html", ".js": "application/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml" };
-    res.writeHead(200, { "Content-Type": (types[ext] || "application/octet-stream") + "; charset=utf-8" });
-    res.end(data);
-  });
-}
-
-function readBody(req) {
+function body(req) {
   return new Promise((resolve, reject) => {
-    let raw = "";
-    req.on("data", chunk => { raw += chunk; if (raw.length > 1e6) req.destroy(); });
-    req.on("end", () => {
-      if (!raw) return resolve({});
-      try { resolve(JSON.parse(raw)); } catch (e) { reject(e); }
-    });
-    req.on("error", reject);
+    let raw = '';
+    req.on('data', c => { raw += c; if (raw.length > 1e6) req.destroy(); });
+    req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch (e) { reject(e); } });
+    req.on('error', reject);
   });
+}
+function summary() {
+  const day = state.now / 1440;
+  return {
+    heureDeBord: E.fmt.when(state.now),
+    phase: E.phaseAt(D.mission, day).label,
+    delaiRadioMinutes: Math.round(E.lightMinutes(D.mission, day) * 100) / 100,
+    liaison: E.isBlackout(D.mission, day) ? 'coupée' : 'établie',
+    alertesOuvertes: state.alerts.filter(a => a.st !== 'close').map(a => ({ niveau: a.lv, titre: a.title })),
+    equipage: D.crew.map(c => ({
+      id: c.id, nom: c.name,
+      mesures: S.METRIC_IDS.reduce((o, k) => { const m = S.lastMeasurement(state, c.id, k); o[k] = m ? { valeur: m.v, lectureAura: m.lv, z: m.z, lectureTerrestre: E.terrestrialReading(D.metrics[k], m.v).label } : null; return o; }, {})
+    }))
+  };
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const segments = url.pathname.split("/").filter(Boolean);
-
-  if (segments[0] !== "api") return serveStatic(req, res);
-
+  const url = new URL(req.url, 'http://localhost');
   try {
-    // GET /api/astronauts
-    if (req.method === "GET" && segments[1] === "astronauts" && segments.length === 2) {
-      return sendJson(res, 200, state.astronauts.map(a => ({ id: a.id, name: a.name, baseline: a.baseline })));
+    if (url.pathname === '/api/etat' && req.method === 'GET') return json(res, 200, summary());
+    if (url.pathname === '/api/journal' && req.method === 'GET') return json(res, 200, state.journal.slice(0, 100));
+    if (url.pathname === '/api/mesures' && req.method === 'POST') {
+      const b = await body(req);
+      if (!S.crewById[b.a] || !D.metrics[b.k]) return json(res, 400, { erreur: 'membre d’équipage ou mesure inconnus (a : a1 à a4, k : temp, hr, spo2)' });
+      const r = S.addMeasurement(state, { a: b.a, k: b.k, v: b.v, ctx: b.ctx || {}, src: 'api' });
+      S.save(state, disk);
+      return json(res, 200, { statut: r.status, lectureAura: r.ev ? r.ev.level : null, z: r.ev ? r.ev.z : null, plageAttendue: r.ev ? r.ev.band : null, lectureTerrestre: r.ev ? r.ev.terrestrial.label : null, explicationEquipage: r.text ? r.text.crew : null, explicationMedecin: r.text ? r.text.doctor : null });
     }
-
-    // GET /api/astronauts/:id
-    if (req.method === "GET" && segments[1] === "astronauts" && segments.length === 3) {
-      const a = state.astronauts.find(x => x.id === segments[2]);
-      if (!a) return sendJson(res, 404, { error: "astronaute inconnu" });
-      return sendJson(res, 200, a);
+    if (url.pathname === '/api/avancer' && req.method === 'POST') {
+      const b = await body(req);
+      const ev = S.advanceTo(state, state.now + Math.max(1, Math.min(30 * 1440, Number(b.minutes) || 60)));
+      S.save(state, disk);
+      return json(res, 200, { evenements: ev, etat: summary() });
     }
-
-    // POST /api/measurements  { astronautId, metric, value, context }
-    if (req.method === "POST" && segments[1] === "measurements") {
-      const body = await readBody(req);
-      const result = processMeasurement({
-        state, metrics: METRICS,
-        astronautId: body.astronautId, metric: body.metric, value: Number(body.value),
-        context: body.context || {}
-      });
-      save(state);
-      return sendJson(res, result.ok === false ? 400 : 200, result);
-    }
-
-    // GET /api/journal
-    if (req.method === "GET" && segments[1] === "journal") {
-      return sendJson(res, 200, state.journal);
-    }
-
-    // GET /api/metrics
-    if (req.method === "GET" && segments[1] === "metrics") {
-      return sendJson(res, 200, METRICS);
-    }
-
-    // GET /api/scenarios
-    if (req.method === "GET" && segments[1] === "scenarios" && segments.length === 2) {
-      return sendJson(res, 200, SCENARIOS.map(s => ({ id: s.id, tag: s.tag, title: s.title, type: s.type })));
-    }
-
-    // POST /api/scenarios/:id/replay
-    if (req.method === "POST" && segments[1] === "scenarios" && segments[3] === "replay") {
-      const scenario = SCENARIOS.find(s => s.id === segments[2]);
-      if (!scenario) return sendJson(res, 404, { error: "scénario inconnu" });
-
-      if (scenario.linkDown) state.linkStatus = "down";
-      else state.linkStatus = "up";
-
-      if (scenario.type === "event") {
-        const entry = {
-          timestamp: new Date().toISOString(),
-          astronautId: null,
-          astronautName: scenario.crew,
-          event: scenario.title,
-          alert: scenario.emergency ? "critical" : "none",
-          action: scenario.note,
-          reason: scenario.journal
-        };
-        state.journal.unshift(entry);
-        state.journal = state.journal.slice(0, 50);
-        save(state);
-        return sendJson(res, 200, { ok: true, status: "event", scenario, journalEntry: entry });
-      }
-
-      const result = processMeasurement({
-        state, metrics: METRICS,
-        astronautId: scenario.astronautId, metric: scenario.metric, value: scenario.value,
-        context: scenario.context || {}
-      });
-      save(state);
-      return sendJson(res, 200, { ok: true, scenario, result, transmissionQueue: state.transmissionQueue.length, linkStatus: state.linkStatus });
-    }
-
-    // GET /api/state  (file d'attente de transmission, état de la liaison)
-    if (req.method === "GET" && segments[1] === "state") {
-      return sendJson(res, 200, { linkStatus: state.linkStatus, transmissionQueueLength: state.transmissionQueue.length });
-    }
-
-    // POST /api/reset  (remet l'état de démonstration à zéro)
-    if (req.method === "POST" && segments[1] === "reset") {
-      state = reset();
-      return sendJson(res, 200, { ok: true });
-    }
-
-    return sendJson(res, 404, { error: "route inconnue" });
+    if (url.pathname.startsWith('/api/')) return json(res, 404, { erreur: 'route inconnue' });
+    let file = path.normalize(path.join(ROOT, decodeURIComponent(url.pathname)));
+    if (!file.startsWith(ROOT)) { res.writeHead(403); return res.end('Interdit'); }
+    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    fs.readFile(file, (err, data) => {
+      if (err) { res.writeHead(404); return res.end('Introuvable'); }
+      res.writeHead(200, { 'Content-Type': (TYPES[path.extname(file)] || 'application/octet-stream') + (/\.(html|js|css|txt|webmanifest|svg)$/.test(file) ? '; charset=utf-8' : '') });
+      res.end(data);
+    });
   } catch (err) {
-    return sendJson(res, 500, { error: "erreur serveur", detail: String(err && err.message || err) });
+    json(res, 500, { erreur: String(err && err.message || err) });
   }
 });
-
-server.listen(PORT, () => {
-  console.log(`AURA — serveur démarré sur http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log('AURA : http://localhost:' + PORT));

@@ -1,11 +1,11 @@
 {
-  "name": "aura-health-monitoring",
-  "version": "0.1.0",
-  "description": "AURA — logiciel de surveillance de la santé des astronautes (NASA Space Apps Challenge 2026, Local Event Dakar)",
-  "main": "server/server.js",
+  "name": "aura-sante-equipage",
+  "version": "1.0.0",
+  "description": "AURA : suivi de la santé des astronautes avec des repères adaptés aux conditions du vol (NASA Space Apps Challenge 2026, Dakar)",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node server/server.test.js"
+    "test": "node tests/engine.test.js",
+    "test:navigateur": "node tests/browser.test.mjs"
   },
   "license": "MIT"
 }

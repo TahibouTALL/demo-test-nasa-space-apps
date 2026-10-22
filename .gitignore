@@ -1,3 +1,5 @@
 node_modules/
+server/etat.json
 server/data/state.json
 .DS_Store
+tests/captures/

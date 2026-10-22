@@ -1,101 +1,116 @@
-# AURA — surveillance de la santé des astronautes
+# AURA : santé de l’équipage
 
-Projet préparé pour le **NASA Space Apps Challenge 2026** (Local Event Dakar),
-challenge *Create Health Monitoring Software for Astronauts on Space Missions*.
+Plateforme de suivi de la santé des astronautes pour les missions lointaines, préparée pour le défi
+*Create Health Monitoring Software for Astronauts on Space Missions* du **NASA Space Apps Challenge 2026**
+(événement local de Dakar).
 
-AURA adapte les normes médicales, les seuils d'alarme et les actions proposées
-aux conditions réelles du vol (microgravité, isolement, délai de
-communication), plutôt que d'appliquer des repères conçus pour un corps qui
-reste sur Terre.
+**En ligne : https://tahiboutall.github.io/demo-test-nasa-space-apps/**
 
-## Voir le projet en ligne
+## L’idée
 
-Le dossier `docs/` est un site statique autonome (GitHub Pages : Settings →
-Pages → Source = branche `main`, dossier `/docs`) : la logique de calcul
-tourne entièrement dans le navigateur via `docs/engine.js`, sans serveur.
-C'est le même code que celui du serveur Node, porté tel quel.
+Aujourd’hui, l’adaptation des repères médicaux aux conditions du vol se fait surtout dans la tête du
+médecin au sol : il sait que la température monte d’environ 1 °C en apesanteur, qu’un mal de tête peut
+venir du CO₂ de la cabine, qu’un médicament stocké longtemps peut perdre de sa puissance. Vers Mars, ce
+médecin répond avec jusqu’à 44 minutes de retard, et plus du tout pendant les deux semaines de conjonction
+solaire. AURA met cette connaissance à bord, écrite, sourcée et vérifiable.
 
-Lien : `https://tahiboutall.github.io/demo-test-nasa-space-apps/`
-(l'état repart de zéro à chaque rechargement — ce n'est pas persisté entre
-deux visites, contrairement à la version serveur ci-dessous).
+Exemple : Lucas Moreau mesure 38,1 °C au réveil, à J+70. La norme du sol dit « fièvre ». AURA, qui connaît
+l’effet du vol et la référence de Lucas, répond « normale pour vous en ce moment ». À l’inverse, un pouls de
+92 au repos passe pour normal sur Terre, mais AURA alerte pour Rafael Ortiz, dont la référence est à 51.
 
-## Lancer la version serveur en local
+## Ce que fait la plateforme
+
+| Page | Ce qu’on y fait |
+|---|---|
+| Vue d’ensemble | État de la personne (vue équipage) ou de tout l’équipage (vue médecin de bord) |
+| Équipage et fiches | Chaque mesure lue avec la norme du sol et avec la référence AURA, les cinq étapes du calcul, l’historique |
+| Nouvelle saisie | Mesures (température, pouls, saturation) et symptômes reliés aux conditions du vol |
+| Alertes | Vigilance, alerte, mode urgence avec procédure et message prioritaire vers la Terre |
+| Pharmacie | Stock, dose validée par le médecin, suivi de l’effet après chaque prise, stabilité des produits |
+| Planification | Simulation Monte Carlo des besoins en médicaments pour une mission sans réapprovisionnement |
+| Bien-être | Point du jour privé (humeur, stress, sommeil), repérage d’une baisse qui dure |
+| Habitat | CO₂ de la cabine et dose de radiation, avec les limites NASA |
+| Conférence | Synthèse de la semaine préparée sans IA à partir du journal |
+| Questions | Recherche hors connexion dans une base de fiches sourcées, avec le contexte de la mission |
+| Liaison Terre | Délai radio réel, file d’attente par priorité, coupure de conjonction |
+| Mission | Profil, frise, données réelles prévues, réglages de la simulation |
+| Démonstration guidée | Les six scénarios à présenter, dans l’ordre |
+
+Deux vues sur les mêmes données : **équipage** (langage simple, chacun voit ses propres mesures) et
+**médecin de bord** (vocabulaire clinique, tout l’équipage, décisions de validation).
+
+## Comment AURA lit une mesure
+
+1. Norme terrestre (repère clinique au sol)
+2. Effet du vol connu dans la littérature (par exemple +1 °C au repos, Stahn et al., 2017)
+3. Référence personnelle mesurée avant le départ
+4. Ajustement quotidien avec les mesures en vol (filtre bayésien de Kalman, niveau local)
+5. Contexte du moment (effort, stress, médicament)
+
+Règles de sécurité : une valeur anormale n’est jamais intégrée à la référence ; les seuils fixes
+(39 °C, saturation sous 90 %, pouls de repos au-dessus de 120) ne sont jamais personnalisés ; un décalage
+persistant demande la décision du médecin ; AURA ne change jamais une dose lui-même.
+
+## Ce qui est calculé, ce qui est simulé
+
+Tout le calcul est réel et tourne dans le navigateur : filtre bayésien, plages attendues, alertes, trois
+contrôles de cohérence des mesures (valeur impossible, donnée manquante, valeur isolée), Monte Carlo,
+file vers la Terre, recherche documentaire (BM25), synthèse hebdomadaire.
+
+Sont simulés : l’équipage et ses capteurs (fictifs, reproductibles), le CO₂ et l’éruption solaire, les
+réponses du médecin au sol, les fréquences des situations médicales (illustratives) et la distance
+Terre-Mars (modèle simplifié). Les données réelles prévues sont listées dans la page Mission (LSDA, OSDR,
+PhysioNet, NASA-STD-3001).
+
+La plateforme fonctionne **sans connexion** après le premier chargement (service worker, polices
+hébergées avec le site).
+
+## Lancer en local
+
+Le dossier `docs/` est un site statique : n’importe quel serveur de fichiers suffit.
 
 ```bash
-npm start
+npm start            # serveur Node (sans dépendance) : http://localhost:3000
+npm test             # 36 tests du moteur et de la simulation
+npm run test:navigateur   # parcours complet dans Chromium (nécessite Playwright)
 ```
 
-Puis ouvrir `http://localhost:3000`. Cette version persiste le journal de
-mission et la file de transmission dans un fichier, et expose une vraie API
-HTTP (utile pour brancher autre chose dessus plus tard).
+Le serveur Node expose aussi une petite API (`/api/etat`, `/api/mesures`, `/api/avancer`, `/api/journal`)
+pour brancher plus tard de vrais capteurs. Il utilise exactement le même moteur que le navigateur.
 
-Lancer les tests :
+## GitHub Pages
 
-```bash
-npm test
-```
+Le site fonctionne avec les deux réglages possibles de GitHub Pages (Settings, Pages, branche `main`) :
+dossier `/docs` (recommandé), ou `/ (root)`, où la page d’accueil redirige vers `docs/`.
 
 ## Structure
 
 ```
-docs/              site statique (GitHub Pages) — présentation + démonstrateur
-  engine.js          moteur de calcul porté pour le navigateur (sans serveur)
-  data/                copies des données utilisées pour le calcul côté client
-server/
-  server.js        API HTTP (Node.js natif, sans dépendance externe)
-  pipeline.js       chaîne de traitement d'une mesure (F3 → F6)
-  lib/
-    bayesian.js      mise à jour bayésienne de la référence personnelle
-    validate.js       les 3 vérifications de cohérence (F3)
-    norms.js           norme adaptée à 5 couches (F4) + évaluation d'alarme (F5)
-    actions.js          table de règles pour l'action proposée (F6)
-  data/
-    metrics.json         normes terrestres + décalages spatiaux sourcés
-    astronauts.seed.json  profils de départ de l'équipage (référence pré-vol)
-    scenarios.json          les 6 scénarios de démonstration
-  server.test.js     tests (node:assert, sans dépendance)
+docs/                 la plateforme (site statique)
+  index.html
+  assets/             styles, polices Atkinson Hyperlegible Next (licence OFL), icônes, code QR
+  js/data.js          données de référence et sources
+  js/kb.js            base documentaire embarquée
+  js/engine.js        moteur de calcul (fonctions pures)
+  js/store.js         état, simulation de la mission, actions
+  js/ui.js            règle de lecture et graphiques
+  js/views-*.js       pages
+  js/app.js           navigation, actions, sauvegarde locale
+  sw.js               fonctionnement hors connexion
+server/server.js      serveur et API facultatifs
+tests/                tests du moteur et test de bout en bout
 ```
 
-`docs/engine.js` et `server/lib/*.js` contiennent le même calcul : le second
-est la version testée (`npm test`), le premier en est le port navigateur
-pour permettre un déploiement statique sur GitHub Pages.
+## Sources principales
 
-## Ce qui est réellement implémenté
+Stahn et al. 2017 (température), Law et al. 2014 et fiche NASA OCHMO sur le CO₂, Barger et al. 2014
+(sommeil), Basner et al. 2013 (Mars-520), Zeitlin et al. 2013 et Hassler et al. 2014 (radiation),
+fiche NASA OCHMO radioprotection (limite de 600 mSv), Du et al. 2011 et Wotring 2015 (stabilité des
+médicaments), Dello Russo et al. 2022 (pharmacocinétique en vol), Crucian et al. 2018 (immunité),
+Russell et al. 2023 (autonomie médicale), Buras et Hilmers 2025 (IA embarquée). La liste complète, avec
+les liens, est dans la page À propos.
 
-- Mise à jour bayésienne réelle de la référence personnelle de chaque
-  astronaute (modèle normal-normal conjugué), pas une valeur pré-calculée.
-- Norme adaptée calculée à partir de la norme terrestre, du décalage spatial
-  documenté dans la littérature, de la référence personnelle et du contexte
-  de mission.
-- Les 3 vérifications de cohérence de F3 (valeur impossible ignorée, donnée
-  manquante non bloquante, mesure isolée aberrante redemandée à partir de
-  l'historique réel du journal).
-- Journal de mission et file de transmission persistés (fichier JSON).
-- Les 6 scénarios de démonstration rejouent la vraie chaîne de traitement
-  (`POST /api/scenarios/:id/replay` côté serveur, `AuraEngine.processMeasurement`
-  côté navigateur) — rien n'est renvoyé en dur.
+## Utilisation de l’IA
 
-## Ce qui ne l'est pas (périmètre volontairement laissé de côté)
-
-- Pas de capteur réel connecté — les mesures viennent de scénarios simulés ou
-  de l'API `POST /api/measurements` appelée à la main.
-- Pas d'étage IA (conférence médicale, RAG) — décrit dans le document de
-  fonctionnalités, à construire pendant le hackathon.
-- Indice de fiabilité des capteurs et protection logicielle contre les
-  radiations : écartés du périmètre (voir le document de fonctionnalités,
-  section perspectives).
-- Authentification, gestion multi-mission, interface d'administration.
-
-## API
-
-| Méthode | Route                          | Description |
-|---|---|---|
-| GET | `/api/astronauts` | Liste de l'équipage avec référence courante |
-| GET | `/api/astronauts/:id` | Un astronaute |
-| POST | `/api/measurements` | Traite une mesure `{ astronautId, metric, value, context }` |
-| GET | `/api/journal` | Journal de mission (50 dernières entrées) |
-| GET | `/api/metrics` | Normes terrestres et décalages spatiaux |
-| GET | `/api/scenarios` | Liste des 6 scénarios |
-| POST | `/api/scenarios/:id/replay` | Rejoue un scénario à travers la vraie chaîne de traitement |
-| GET | `/api/state` | État de la liaison et file de transmission |
-| POST | `/api/reset` | Remet l'état de démonstration à zéro |
+Le code et les textes de cette plateforme ont été produits avec l’aide d’un assistant d’intelligence
+artificielle. C’est à déclarer dans la soumission, conformément aux règles du concours.
