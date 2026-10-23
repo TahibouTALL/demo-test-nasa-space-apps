@@ -1,6 +1,7 @@
 // Test de bout en bout dans un vrai navigateur (Chromium, via Playwright).
-// Lance un petit serveur statique sur le dépôt, ouvre la plateforme, parcourt
-// toutes les pages, joue les interactions clés et prend des captures.
+// Un petit serveur statique sert le dépôt ; on parcourt les parcours clés des
+// trois profils (équipage, médecin de bord, médecin au sol), avec une IA et la
+// base DONKI de la NASA simulées, puis on vérifie l’affichage sur téléphone.
 // Lancer avec : npm run test:navigateur   (Playwright doit être installé)
 import http from 'http';
 import fs from 'fs';
@@ -16,7 +17,7 @@ const OUT = process.env.CAPTURES || path.join(ROOT, 'tests', 'captures');
 fs.mkdirSync(OUT, { recursive: true });
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
 const server = http.createServer((req, res) => {
-  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  const p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   let file = path.join(ROOT, p);
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   if (!file.startsWith(ROOT) || !fs.existsSync(file)) { res.writeHead(404); return res.end('404'); }
@@ -28,163 +29,223 @@ const BASE = 'http://localhost:' + server.address().port;
 
 let failures = 0, checks = 0;
 const ok = (cond, msg) => { checks++; if (!cond) { failures++; console.log('  ÉCHEC ' + msg); } else console.log('  ok   ' + msg); };
-
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'fr-FR' });
-const page = await ctx.newPage();
 const errors = [];
-page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
-const shot = async (name, p = page) => { await p.waitForTimeout(350); await p.screenshot({ path: path.join(OUT, name + '.png'), fullPage: true }); };
-const goto = async (hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(250); };
-const text = async () => page.evaluate(() => document.getElementById('main').innerText);
+// Éruptions solaires réelles simulées (base DONKI de la NASA)
+const FLARES = [
+  { flrID: '1', classType: 'X1.2', peakTime: '2026-10-12T14:05Z', sourceLocation: 'S12W30', activeRegionNum: 14201 },
+  { flrID: '2', classType: 'M3.4', peakTime: '2026-10-18T03:20Z', sourceLocation: 'N08E15', activeRegionNum: 14210 }
+];
+async function open(vp) {
+  const ctx = await browser.newContext({ viewport: vp || { width: 1440, height: 900 }, locale: 'fr-FR', serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
+  await page.route('https://api.nasa.gov/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(FLARES) }));
+  await page.goto(BASE + '/');
+  await page.waitForURL(/\/docs\//, { timeout: 5000 });
+  await page.waitForSelector('#page-title');
+  return { ctx, page };
+}
+const main = page => page.evaluate(() => document.getElementById('main').innerText.replace(/[\u00a0\u202f]/g, ' '));
+const go = async (page, hash) => { await page.evaluate(h => { location.hash = h; }, hash); await page.waitForTimeout(220); };
+const shot = async (page, name, full = true) => { await page.waitForTimeout(300); await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: full }); };
+const pick = async (page, sel) => { await page.click(sel); await page.waitForTimeout(300); };
 
-console.log('Chargement');
-await page.goto(BASE + '/');
-await page.waitForURL(/\/docs\//, { timeout: 5000 });
-await page.waitForSelector('#page-title');
-ok(page.url().includes('/docs/'), 'la racine du dépôt redirige vers la plateforme');
-ok((await page.title()).includes('AURA'), 'titre de page');
-ok((await text()).includes('Votre température ce matin'), 'vue d’ensemble équipage affichée');
-await shot('01-vue-ensemble-equipage');
+/* ------------------------------------------------------------------ */
+console.log('Accueil');
+{
+  const { ctx, page } = await open();
+  ok((await page.title()).includes('AURA'), 'titre de page');
+  ok((await main(page)).includes('Bienvenue à bord'), 'page d’accueil affichée');
+  ok(await page.evaluate(() => document.body.classList.contains('is-welcome') && getComputedStyle(document.querySelector('.sidebar')).display === 'none'), 'accueil sans menu tant qu’aucun profil n’est choisi');
+  await shot(page, '01-accueil', false);
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  ok((await main(page)).includes('Lucas'), 'profil Lucas Moreau choisi');
+  ok(await page.evaluate(() => !document.body.classList.contains('is-welcome')), 'le menu apparaît ensuite');
+  await shot(page, '02-aujourdhui-equipage');
 
-console.log('Toutes les pages');
-const routes = ['#/', '#/equipage', '#/equipage/a2', '#/saisie', '#/saisie?type=symptome', '#/alertes', '#/pharmacie', '#/planification', '#/bien-etre', '#/habitat', '#/conference', '#/questions', '#/liaison', '#/mission', '#/demo', '#/a-propos'];
-for (const r of routes) {
-  await goto(r);
-  const t = await text();
-  ok(!t.includes('n’a pas pu s’afficher') && (await page.$('#page-title')) !== null, 'page ' + r);
+  console.log('Toutes les pages, trois profils');
+  const routes = {
+    crew: ['#/', '#/mesurer', '#/mesurer/temp', '#/mesurer/hr', '#/mesurer/spo2', '#/mesurer/symptome', '#/bien-etre', '#/bien-etre/respiration', '#/bien-etre/paysage', '#/bien-etre/reaction', '#/assistant', '#/conference', '#/dossier', '#/liaison', '#/mission', '#/urgence', '#/alertes', '#/reglages', '#/a-propos', '#/pharmacie', '#/planification'],
+    doctor: ['#/', '#/alertes', '#/conference', '#/pharmacie', '#/planification', '#/bien-etre', '#/assistant', '#/liaison', '#/mission', '#/dossier/a3', '#/urgence'],
+    ground: ['#/', '#/equipage', '#/liaison', '#/mission', '#/reglages']
+  };
+  for (const role of Object.keys(routes)) {
+    await page.evaluate(r => { const A = window.AURA_APP; A.s.role = r; A.s.me = r === 'doctor' ? 'a3' : 'a2'; }, role);
+    for (const r of routes[role]) {
+      const before = errors.length;
+      await go(page, r);
+      const t = await main(page);
+      ok(!t.includes('n’a pas pu s’afficher') && (await page.$('#page-title')) !== null && errors.length === before, role + ' ' + r);
+    }
+  }
+  await ctx.close();
 }
 
-console.log('Saisie d’une mesure : la fausse fièvre');
-await goto('#/saisie?type=mesure');
-await page.click('button.chip[data-v="38.1"]');
-await page.waitForTimeout(300);
-let t = await text();
-ok(t.includes('Sur Terre') && t.includes('Lecture AURA'), 'la règle de lecture s’affiche avec les deux lectures');
-ok(await page.$('svg.ruler') !== null, 'règle SVG présente');
-await shot('02-saisie-fievre');
-await page.click('button.chip[data-v="45.3"]'); await page.waitForTimeout(200);
-ok((await text()).includes('Valeur impossible'), 'contrôle 1 : valeur impossible ignorée');
-await page.click('button.chip[data-v=""]'); await page.waitForTimeout(200);
-ok((await text()).includes('Aucune valeur'), 'contrôle 2 : donnée manquante gérée');
-await page.click('button.chip[data-v="91"]'); await page.waitForTimeout(200);
-ok((await text()).includes('Reprenez la mesure'), 'contrôle 3 : valeur isolée, nouvelle mesure demandée');
-await page.click('button.chip[data-v="92"]'); await page.waitForTimeout(200);
-t = await text();
-ok(t.includes('passerait pour normal') || t.includes('Reprenez'), 'pouls de 92 chez Rafael : inhabituel pour lui');
+/* ------------------------------------------------------------------ */
+console.log('Une fièvre qui n’en est pas une');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/mesurer/temp');
+  await page.fill('#m-v', '38.1');
+  await pick(page, 'form[data-form="measure"] button[type="submit"]');
+  const t = await main(page);
+  ok(t.includes('Sur Terre, 38,1 °C serait lu comme fièvre'), 'la norme terrestre dit fièvre');
+  ok(t.includes('pour vous'), 'AURA lit la valeur avec la référence de la personne');
+  await page.click('details.disclose summary');
+  await page.waitForTimeout(250);
+  ok(await page.$('svg.ruler, .ruler svg, svg[aria-label*="Norme"]') !== null || (await main(page)).includes('Plage attendue'), 'explication détaillée avec la règle des deux lectures');
+  await shot(page, '03-mesure-fausse-fievre');
+  await ctx.close();
+}
 
-console.log('Symptôme');
-await goto('#/saisie?type=symptome');
-await page.check('input[name="sym"][value="cephalee"]', { force: true });
-await page.click('form[data-form="symptom"] button[type="submit"]');
-await page.waitForTimeout(300);
-ok((await text()).includes('À faire, dans l’ordre'), 'analyse du symptôme affichée');
+/* ------------------------------------------------------------------ */
+console.log('Signe d’alarme dans l’assistant');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/assistant');
+  await page.fill('#ask-q', 'J’ai très mal à la poitrine depuis dix minutes, ça serre.');
+  await pick(page, 'form[data-form="ask"] button[type="submit"]');
+  await page.waitForTimeout(400);
+  ok((await main(page)).includes('Prévenez la médecin de bord maintenant'), 'premiers gestes affichés avant toute réponse');
+  ok(await page.evaluate(() => { const u = document.getElementById('urgency'); return u && !u.hidden; }), 'bandeau d’urgence sur toutes les pages');
+  await go(page, '#/liaison');
+  ok((await main(page)).includes('Urgent'), 'message prioritaire dans la file vers la Terre');
+  await shot(page, '04-signe-alarme');
+  await ctx.close();
+}
 
-console.log('Vue médecin');
-await page.click('button[data-role="doctor"]');
-await page.waitForTimeout(250);
-await goto('#/');
-ok((await text()).includes('Alertes ouvertes'), 'vue d’ensemble médecin');
-await shot('03-vue-ensemble-medecin');
-await goto('#/equipage/a2?m=temp');
-t = await text();
-ok(t.includes('Plage attendue') && t.includes('Filtre bayésien'), 'fiche astronaute : les cinq couches et le détail clinique');
-await shot('04-fiche-lucas-temperature');
-await page.hover('svg[data-chart] .hit', { position: { x: 300, y: 80 } });
-await page.waitForTimeout(150);
-ok(await page.$eval('#tooltip', el => el.classList.contains('show')), 'infobulle au survol du graphique');
+/* ------------------------------------------------------------------ */
+console.log('Entretien de la semaine, sans IA');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/conference');
+  await pick(page, '[data-act="itv-start"]');
+  let n = 0;
+  while (n < 20 && await page.$('#itv-a')) {
+    await page.fill('#itv-a', 'Ça va, rien de particulier.');
+    await pick(page, 'form[data-form="itv-answer"] button[type="submit"]');
+    n++;
+  }
+  ok(n >= 6, n + ' questions posées une à une');
+  const med = await page.$eval('#itv-med', el => el.value).catch(() => '');
+  ok(med.includes('Entretien de Lucas Moreau'), 'résumé préparé à bord, modifiable');
+  await shot(page, '05-entretien-resume');
+  await pick(page, 'form[data-form="itv-send"] button[type="submit"]');
+  const t = await main(page);
+  ok(/Votre résumé (est en route vers la Terre|est arrivé au sol)/.test(t), 'résumé envoyé avec l’accord de la personne');
+  ok(t.includes('La partie psychologique reste à bord'), 'partie psychologique gardée à bord par défaut');
+  await ctx.close();
+}
 
-console.log('Pharmacie et dose');
-await goto('#/pharmacie');
-ok((await text()).includes('Discuter la dose'), 'réponses aux traitements : discussion de dose proposée');
-await page.click('button[data-act="factor-open"][data-med="paracetamol"]');
-await page.check('form[data-form="factor"] input[value="1.5"]', { force: true });
-await page.fill('#fac-n', 'Effet partiel sur trois prises, pas d’effet indésirable');
-await page.click('form[data-form="factor"] button[type="submit"]');
-await page.waitForTimeout(250);
-ok((await text()).includes('facteur 1,50'), 'facteur de dose validé et affiché');
-await shot('05-pharmacie-medecin');
+/* ------------------------------------------------------------------ */
+console.log('Écrire au médecin au sol');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/liaison');
+  await page.fill('#msg-b', 'Je dors mal depuis trois jours');
+  await pick(page, '[data-act="msg-draft"]');
+  const v = await page.$eval('#msg-b', el => el.value);
+  ok(v.startsWith('Contexte : Lucas Moreau') && v.includes('Je dors mal depuis trois jours'), 'AURA ajoute le contexte de la mission');
+  ok(await page.$('[data-act="msg-undo"]') !== null, 'on peut revenir à son texte');
+  await pick(page, 'form[data-form="message"] button[type="submit"]');
+  ok((await main(page)).includes('Je dors mal depuis trois jours'), 'message en file, objet repris du texte');
+  await ctx.close();
+}
 
-console.log('Planification');
-await goto('#/planification');
-await page.check('input[name="scenario"][value="pessimiste"]', { force: true });
-await page.click('form[data-form="plan"] button[type="submit"]');
-await page.waitForTimeout(800);
-ok((await text()).includes('Risque de rupture'), 'simulation Monte Carlo exécutée');
-await shot('06-planification');
+/* ------------------------------------------------------------------ */
+console.log('Médecin au sol');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-role="ground"]');
+  ok((await main(page)).includes('Reçu du vaisseau'), 'vue du médecin au sol');
+  ok(!(await main(page)).includes('Mon dossier'), 'pas de données de bord en direct');
+  await go(page, '#/liaison');
+  await page.selectOption('#gm-a', 'all');
+  await page.fill('#gm-t', 'Rappel avant la sortie');
+  await page.fill('#gm-b', 'Pensez à bien boire avant la sortie de demain.');
+  await pick(page, 'form[data-form="ground-message"] button[type="submit"]');
+  ok((await main(page)).includes('pour tout l’équipage'), 'message parti vers tout l’équipage, avec le délai');
+  await shot(page, '06-medecin-au-sol');
+  await ctx.close();
+}
 
-console.log('Questions');
-await goto('#/questions');
-await page.fill('#ask-q', 'j’ai mal à la tête');
-await page.click('form[data-form="ask"] button[type="submit"]');
-await page.waitForTimeout(300);
-ok((await text()).includes('Maux de tête et CO₂'), 'recherche : fiche CO₂ trouvée');
-await shot('07-questions');
+/* ------------------------------------------------------------------ */
+console.log('IA connectée (Claude, réponse simulée)');
+{
+  const { ctx, page } = await open();
+  let seen = null;
+  await page.route('https://api.anthropic.com/v1/messages', async route => {
+    const req = route.request();
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    seen = { headers: req.headers(), body: JSON.parse(req.postData() || '{}') };
+    const ev = (o) => 'event: ' + o.type + '\ndata: ' + JSON.stringify(o) + '\n\n';
+    const sse = ev({ type: 'message_start', message: { id: 'm', role: 'assistant', content: [] } }) +
+      ev({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Le CO₂ de la cabine peut donner mal à la tête [1]. ' } }) +
+      ev({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Vérifiez la ventilation de votre zone.' } }) +
+      ev({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }) + ev({ type: 'message_stop' });
+    return route.fulfill({ status: 200, headers: Object.assign({ 'content-type': 'text/event-stream' }, cors), body: sse });
+  });
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/reglages');
+  await pick(page, '[data-act="ai-provider"][data-id="anthropic"]');
+  await page.fill('#ai-key', 'sk-ant-test');
+  await pick(page, 'form[data-form="ai-config"] button[type="submit"]');
+  ok(await page.evaluate(() => JSON.parse(localStorage.getItem('aura.ia') || '{}').provider === 'anthropic'), 'clé gardée dans ce navigateur seulement');
+  await go(page, '#/assistant');
+  await page.fill('#ask-q', 'J’ai mal à la tête, est-ce le CO₂ ?');
+  await pick(page, 'form[data-form="ask"] button[type="submit"]');
+  await page.waitForFunction(() => (document.getElementById('chat') || {}).innerText && document.getElementById('chat').innerText.includes('Vérifiez la ventilation'), null, { timeout: 5000 }).catch(() => {});
+  const t = await main(page);
+  ok(t.includes('Le CO₂ de la cabine peut donner mal à la tête'), 'réponse rédigée par l’IA à partir des fiches');
+  ok(await page.$('#chat a.cite[data-cite="1"]') !== null, 'citation cliquable vers la fiche de bord');
+  ok(seen && seen.headers['x-api-key'] === 'sk-ant-test' && seen.headers['anthropic-version'] === '2023-06-01', 'en-têtes de l’API Anthropic');
+  ok(seen && seen.body.model === 'claude-sonnet-5-5' && seen.body.stream === true && /Fiches de bord/.test(seen.body.system || ''), 'modèle, flux et fiches envoyées comme contexte');
+  await shot(page, '07-assistant-ia');
+  await ctx.close();
+}
 
-console.log('Temps qui passe');
-const before = await page.$eval('.clock-day', el => el.textContent);
-await page.click('button[data-act="advance"][data-min="1440"]');
-await page.waitForTimeout(300);
-const after = await page.$eval('.clock-day', el => el.textContent);
-ok(before !== after, 'avancer d’un jour change le jour de mission (' + before + ' → ' + after + ')');
-
-console.log('Démonstration guidée');
-for (const id of ['s1', 's2', 's3', 's4', 's5', 's6']) {
-  await goto('#/demo');
-  await page.click('button[data-act="scenario"][data-id="' + id + '"]');
+/* ------------------------------------------------------------------ */
+console.log('Données réelles de la NASA et paysage');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await go(page, '#/mission');
+  await page.waitForTimeout(600);
+  ok((await main(page)).includes('X1.2'), 'éruptions solaires lues dans DONKI');
+  await go(page, '#/bien-etre/paysage');
   await page.waitForTimeout(700);
-  t = await text();
-  ok(t.includes('Scénario ' + id.slice(1) + ' sur 6'), 'scénario ' + id + ' lancé');
-  if (id === 's2') ok(t.includes('Sur Terre, 38,1') , 's2 : 38,1 °C lu sur Terre comme fièvre, normal pour Lucas');
-  if (id === 's3') ok(t.includes('CO₂ de la cabine est à'), 's3 : le CO₂ est cité');
-  if (id === 's4') ok(await page.$eval('#urgency', el => !el.hidden && el.textContent.includes('Éruption solaire')), 's4 : bandeau du mode urgence');
-  if (id === 's6') ok(t.includes('La liaison est coupée'), 's6 : liaison coupée affichée');
-  await shot('08-scenario-' + id);
-}
-await page.click('button[data-act="advance-to"]');
-await page.waitForTimeout(600);
-ok(!(await text()).includes('La liaison est coupée'), 's6 : après la conjonction, la liaison revient');
-await shot('09-apres-conjonction');
-
-console.log('Tablette et téléphone');
-for (const vp of [{ w: 1024, h: 768, n: 'tablette' }, { w: 390, h: 844, n: 'telephone' }]) {
-  const p2 = await ctx.newPage();
-  await p2.setViewportSize({ width: vp.w, height: vp.h });
-  await p2.goto(BASE + '/docs/#/');
-  await p2.waitForSelector('#page-title');
-  for (const r of ['#/', '#/equipage/a2', '#/saisie', '#/pharmacie', '#/liaison']) {
-    await p2.evaluate(h => { location.hash = h; }, r);
-    await p2.waitForTimeout(250);
-    const over = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    ok(over <= 1, vp.n + ' ' + r + ' : pas de défilement horizontal (' + over + ' px)');
-  }
-  await p2.evaluate(() => { location.hash = '#/'; });
-  await p2.waitForTimeout(300);
-  await shot('10-' + vp.n + '-accueil', p2);
-  if (vp.n === 'telephone') {
-    await p2.click('.menu-btn');
-    await p2.waitForTimeout(300);
-    ok(await p2.$eval('#nav', el => el.classList.contains('open')), 'téléphone : le menu s’ouvre');
-    await shot('11-telephone-menu', p2);
-  }
-  await p2.close();
+  const lit = await page.evaluate(() => { const c = document.getElementById('scene-canvas'); const d = c.getContext('2d').getImageData(Math.floor(c.width / 2), Math.floor(c.height / 3), 1, 1).data; return d[3] > 0 && (d[0] + d[1] + d[2]) > 0; });
+  ok(lit, 'paysage dessiné');
+  await shot(page, '08-paysage', false);
+  await ctx.close();
 }
 
-console.log('Thème sombre');
-const dark = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: 'dark' });
-const p3 = await dark.newPage();
-p3.on('pageerror', e => errors.push('pageerror (sombre): ' + e.message));
-await p3.goto(BASE + '/docs/#/equipage/a2?m=temp');
-await p3.waitForSelector('#page-title');
-await p3.click('button[data-role="doctor"]');
-await p3.waitForTimeout(300);
-await shot('12-sombre-fiche', p3);
-await dark.close();
+/* ------------------------------------------------------------------ */
+console.log('Téléphone (390 et 320 px)');
+for (const width of [390, 320]) {
+  const { ctx, page } = await open({ width, height: 844 });
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  for (const r of ['#/', '#/mesurer/temp', '#/bien-etre', '#/assistant', '#/conference', '#/dossier', '#/liaison', '#/mission']) {
+    await go(page, r);
+    const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    ok(over <= 0, width + ' px ' + r + ' sans défilement horizontal');
+  }
+  ok(await page.evaluate(() => getComputedStyle(document.querySelector('.tabbar')).display !== 'none'), width + ' px : barre d’onglets en bas');
+  if (width === 390) { await go(page, '#/'); await shot(page, '09-telephone'); }
+  await ctx.close();
+}
 
-ok(errors.length === 0, 'aucune erreur JavaScript' + (errors.length ? ' : ' + errors.slice(0, 5).join(' | ') : ''));
-await browser.close();
-server.close();
+console.log('\nErreurs JavaScript : ' + errors.length);
+errors.slice(0, 10).forEach(e => console.log('  ' + e));
+ok(errors.length === 0, 'aucune erreur JavaScript');
 console.log('\n' + (checks - failures) + ' vérification(s) réussie(s), ' + failures + ' échec(s). Captures : ' + OUT);
+await browser.close(); server.close();
 process.exit(failures ? 1 : 0);

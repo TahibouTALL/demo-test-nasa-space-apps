@@ -601,47 +601,7 @@
   /* Planification de la pharmacie : Monte Carlo                          */
   /* ================================================================== */
   function simulatePharmacy(o) {
-    const r = rng(o.seed || 1);
-    const years = Math.max(0, o.endDay - o.startDay) / 365.25;
-    const idx = {};
-    o.meds.forEach((m, i) => { idx[m.id] = i; });
-    const totals = o.meds.map(() => new Float64Array(o.runs));
-    const nT = (o.transitions || []).filter(d => d >= o.startDay && d < o.endDay).length;
-    for (let k = 0; k < o.runs; k++) {
-      for (const c of o.conditions) {
-        for (let p = 0; p < o.crewSize; p++) {
-          let events = 0;
-          if (c.perTransition !== undefined) {
-            const pr = Math.min(1, c.perTransition * o.multiplier);
-            for (let t = 0; t < nT; t++) if (r() < pr) events++;
-          } else {
-            events = poisson(r, c.rate * o.multiplier * years);
-          }
-          if (!events) continue;
-          for (const need of c.meds) {
-            const i = idx[need.med];
-            if (i === undefined) continue;
-            if (need.min === need.max) { totals[i][k] += events * need.min; continue; }
-            for (let e = 0; e < events; e++) totals[i][k] += uniformInt(r, need.min, need.max);
-          }
-        }
-      }
-    }
-    return o.meds.map((m, i) => {
-      const arr = Array.from(totals[i]).sort((a, b) => a - b);
-      const q = p => arr[Math.min(arr.length - 1, Math.floor(p * arr.length))];
-      const stock = o.stock[m.id];
-      let over = 0, sum = 0;
-      for (const v of arr) { if (v > stock) over++; sum += v; }
-      const max = arr[arr.length - 1] || 0;
-      const top = Math.max(max, stock, 1);
-      const nb = 24, hist = new Array(nb).fill(0);
-      for (const v of arr) hist[Math.min(nb - 1, Math.floor((v / top) * nb))]++;
-      return {
-        med: m.id, stock, mean: sum / arr.length, p50: q(0.5), p90: q(0.9), p99: q(0.99), max,
-        pStockout: over / arr.length, hist, histTop: top
-      };
-    });
+    return simulateMission(o).meds;
   }
 
   /* ================================================================== */
@@ -703,14 +663,214 @@
     queue.forEach(it => {
       if (it.sentAt === null || it.sentAt === undefined) { it.status = blocked ? 'bloqué' : 'en attente'; return; }
       it.status = it.arrAt <= now ? 'reçu' : 'en route';
+      // La réponse simulée du sol part après un temps de réflexion. Tant
+      // qu’elle n’est pas partie, le médecin au sol peut répondre lui-même.
       if (it.reply && !it.replied && it.arrAt <= now && makeReply) {
         const gs = linkUpAt(mission, it.arrAt + (it.prio === 1 ? 15 : 45));
-        const msg = makeReply(it, gs, gs + lightMinutes(mission, gs / 1440));
-        if (msg) inbox.push(msg);
-        it.replied = true;
+        if (gs <= now) {
+          const msg = makeReply(it, gs, gs + lightMinutes(mission, gs / 1440));
+          if (msg) inbox.push(msg);
+          it.replied = true;
+        }
       }
     });
     inbox.forEach(m => { m.status = m.arrAt <= now ? 'reçu' : 'en route'; });
+  }
+
+  /* ================================================================== */
+  /* Signes d’alarme (F5) : vérifiés avant tout autre calcul              */
+  /* ================================================================== */
+  const NEG = new Set(['pas', 'aucun', 'aucune', 'sans', 'jamais', 'ni', 'non']);
+  const SELF = new Set(['j', 'je', 'me', 'm', 'moi', 'ma', 'mon', 'mes', 'il', 'elle', 'on', 'lui', 'ai', 'suis', 'ressens']);
+  function words(s) { return normalize(s).split(' ').filter(Boolean); }
+  function detectRedFlags(text, flags, opts) {
+    opts = opts || {};
+    const toks = words(text);
+    if (!toks.length) return [];
+    const names = new Set((opts.names || []).map(n => normalize(n)));
+    const info = /(^| )(question|questions|savoir|est ce que|frequent|frequente|risque|risques|pourquoi|comment|c est quoi|qu est ce)( |$)/.test(toks.join(' '));
+    const found = [];
+    for (const fl of flags) {
+      let best = null;
+      for (const phrase of fl.words) {
+        const p = words(phrase);
+        if (!p.length) continue;
+        for (let i = 0; i + p.length <= toks.length; i++) {
+          let hit = true;
+          for (let j = 0; j < p.length; j++) if (toks[i + j] !== p[j]) { hit = false; break; }
+          if (!hit) continue;
+          const before = toks.slice(Math.max(0, i - 4), i);
+          const negated = before.some(w => NEG.has(w)) || (before.indexOf('plus') >= 0 && (before.indexOf('n') >= 0 || before.indexOf('ne') >= 0));
+          if (negated) continue;
+          const isSelf = w => SELF.has(w) || names.has(w);
+          const strong = toks.slice(Math.max(0, i - 2), i).concat(p).some(isSelf);
+          const weak = toks.slice(Math.max(0, i - 5), i).some(isSelf);
+          const self = strong || (weak && !info);
+          if (!best || (self && !best.self)) best = { phrase, self, at: i };
+        }
+      }
+      if (best) found.push({ id: fl.id, flag: fl, phrase: best.phrase, self: best.self });
+    }
+    return found;
+  }
+
+  /* ================================================================== */
+  /* Proposition d’action adaptée au vol (F6)                             */
+  /* Chaque médicament passe une série de vérifications, dans l’ordre.     */
+  /* ================================================================== */
+  function actionChecks(med, o) {
+    const units = doseUnits(med, o.factor || 1);
+    const stock = o.stock;
+    const checks = [];
+    const add = (id, label, state, text) => checks.push({ id, label, state, text });
+    add('bord', 'À bord', stock > 0 ? 'ok' : 'no', stock > 0 ? fmt.num(stock, stock % 1 ? 1 : 0) + ' ' + med.units + (stock > 1 ? 's' : '') + ' dans la pharmacie' : 'Plus aucune unité à bord');
+    if (stock > 0) {
+      if (stock < units) add('quantite', 'Quantité', 'no', 'Pas assez pour une prise complète');
+      else if (stock <= med.minStock) add('quantite', 'Quantité', 'warn', 'Stock bas : à économiser jusqu’à la fin de la mission');
+      else add('quantite', 'Quantité', 'ok', 'Assez pour cette prise et les suivantes');
+    }
+    if (o.day >= med.expiryDay) add('etat', 'Encore bon', 'no', 'Périmé depuis ' + fmt.day(med.expiryDay));
+    else if (o.day >= med.checkAfterDay) add('etat', 'Encore bon', 'warn', 'À bord depuis plus de ' + Math.round(med.checkAfterDay / 30.4) + ' mois : puissance à vérifier');
+    else add('etat', 'Encore bon', 'ok', 'Valable jusqu’à ' + fmt.day(med.expiryDay));
+    if (med.route === 'injectable') add('geste', 'Faisable à bord', 'warn', 'Injection : geste réservé à la médecin de bord');
+    else add('geste', 'Faisable à bord', 'ok', med.route === 'oculaire' ? 'Possible en apesanteur, sans pencher la tête' : 'Facile à prendre en apesanteur');
+    const risky = (o.tasks || []).filter(tk => tk.kind === 'eva');
+    if (med.drowsy && risky.length) add('taches', 'Tâches à venir', 'no', 'Peut endormir, et une sortie extravéhiculaire est prévue ' + risky[0].when);
+    else if (med.drowsy) add('taches', 'Tâches à venir', 'ok', 'Peut endormir, mais aucune sortie n’est prévue d’ici demain soir');
+    else add('taches', 'Tâches à venir', 'ok', 'Pas de somnolence connue');
+    if (o.blackout) add('reponse', 'Avis du sol', 'info', 'Liaison coupée : la décision se prend à bord');
+    else if (o.light !== undefined) add('reponse', 'Avis du sol', 'info', 'Réponse du sol au plus tôt dans ' + fmt.dur(Math.round(2 * o.light + 45)) + ' : la décision se prend à bord');
+    const blocked = checks.some(c => c.state === 'no');
+    const caution = checks.some(c => c.state === 'warn');
+    return { med: med.id, units, checks, blocked, caution };
+  }
+  function planActions(meds, o) {
+    const options = meds.map(m => actionChecks(m, Object.assign({}, o, { stock: o.stocks[m.id], factor: o.factors[m.id] })));
+    const order = options.slice().sort((a, b) => (a.blocked - b.blocked) || (a.caution - b.caution));
+    const best = order.find(x => !x.blocked) || null;
+    let level = 'conseil';
+    if (!best && options.length) level = 'medecin';
+    if (o.severe) level = 'medecin';
+    return { options, recommended: best ? best.med : null, level, allBlocked: !best && options.length > 0 };
+  }
+
+  /* ================================================================== */
+  /* Test de réaction (PVT-B, 3 minutes)                                  */
+  /* ================================================================== */
+  function reactionStats(rts, falseStarts, cfg) {
+    cfg = cfg || { lapse: 355 };
+    const v = rts.filter(x => x >= 100).slice().sort((a, b) => a - b);
+    const n = v.length;
+    if (!n) return { n: 0, median: null, mean: null, lapses: 0, falseStarts: falseStarts || 0, speed: null };
+    const median = n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
+    const mean = v.reduce((a, b) => a + b, 0) / n;
+    const speed = v.reduce((a, b) => a + 1000 / b, 0) / n;
+    return { n, median, mean, lapses: v.filter(x => x > cfg.lapse).length, falseStarts: falseStarts || 0, speed, fastest: v[0], slowest: v[n - 1] };
+  }
+
+  /* ================================================================== */
+  /* Mission simulée : besoins en médicaments et temps de travail perdu   */
+  /* ================================================================== */
+  function simulateMission(o) {
+    const r = rng(o.seed || 1);
+    const years = Math.max(0, o.endDay - o.startDay) / 365.25;
+    const idx = {};
+    o.meds.forEach((m, i) => { idx[m.id] = i; });
+    const totals = o.meds.map(() => new Float64Array(o.runs));
+    const lost = new Float64Array(o.runs);
+    const nT = (o.transitions || []).filter(d => d >= o.startDay && d < o.endDay).length;
+    for (let k = 0; k < o.runs; k++) {
+      for (const c of o.conditions) {
+        for (let p = 0; p < o.crewSize; p++) {
+          let events = 0;
+          if (c.perTransition !== undefined) {
+            const pr = Math.min(1, c.perTransition * o.multiplier);
+            for (let t = 0; t < nT; t++) if (r() < pr) events++;
+          } else {
+            events = poisson(r, c.rate * o.multiplier * years);
+          }
+          if (!events) continue;
+          lost[k] += events * (c.hoursLost || 0);
+          for (const need of c.meds) {
+            const i = idx[need.med];
+            if (i === undefined) continue;
+            if (need.min === need.max) { totals[i][k] += events * need.min; continue; }
+            for (let e = 0; e < events; e++) totals[i][k] += uniformInt(r, need.min, need.max);
+          }
+        }
+      }
+    }
+    const meds = o.meds.map((m, i) => {
+      const arr = Array.from(totals[i]).sort((a, b) => a - b);
+      const q = p => arr[Math.min(arr.length - 1, Math.floor(p * arr.length))];
+      const stock = o.stock[m.id];
+      let over = 0, sum = 0;
+      for (const v of arr) { if (v > stock) over++; sum += v; }
+      const max = arr[arr.length - 1] || 0;
+      const top = Math.max(max, stock, 1);
+      const nb = 24, hist = new Array(nb).fill(0);
+      for (const v of arr) hist[Math.min(nb - 1, Math.floor((v / top) * nb))]++;
+      return {
+        med: m.id, stock, mean: sum / arr.length, p50: q(0.5), p90: q(0.9), p99: q(0.99), max,
+        pStockout: over / arr.length, hist, histTop: top
+      };
+    });
+    const L = Array.from(lost).sort((a, b) => a - b);
+    const work = o.crewSize * Math.max(1, o.endDay - o.startDay) * (o.workHoursPerDay || 8);
+    const meanL = L.reduce((a, b) => a + b, 0) / Math.max(1, L.length);
+    const p90L = L[Math.min(L.length - 1, Math.floor(0.9 * L.length))] || 0;
+    return { meds, lost: { mean: meanL, p90: p90L, pctMean: meanL / work, pctP90: p90L / work, workHours: work } };
+  }
+
+  /* ================================================================== */
+  /* Conférence de la semaine (F7) : questions et résumé sans IA          */
+  /* ================================================================== */
+  function interviewPlan(IV, facts, weekIndex) {
+    const plan = IV.base.map(x => Object.assign({}, x));
+    const sleep = plan.find(x => x.id === 'sommeil');
+    if (sleep && facts) {
+      if (facts.sleepDrop && facts.sleepDrop >= 0.5 && facts.sleepFrom !== null) {
+        sleep.q = 'Comment avez-vous dormi cette semaine ? Je vois que vos nuits sont plus courtes depuis ' + fmt.day(facts.sleepFrom) + ' : ' + fmt.hours(facts.sleep7) + ' en moyenne, contre ' + fmt.hours(facts.sleepBase) + ' d’habitude.';
+        sleep.why = 'sommeil';
+      } else if (facts.sleep7 !== null && facts.sleep7 !== undefined) {
+        sleep.q = 'Comment avez-vous dormi cette semaine ? D’après vos points du soir, vous dormez ' + fmt.hours(facts.sleep7) + ' par nuit en moyenne.';
+      }
+    }
+    const gene = plan.find(x => x.id === 'gene');
+    if (facts && facts.partialMed) {
+      const medTxt = 'le ' + facts.partialMed.toLowerCase() + ' n’a pas toujours suffi';
+      if (facts.partialSleep && sleep) sleep.q += ' Et ' + medTxt + ' ces derniers soirs.';
+      else if (gene) gene.q = medTxt.charAt(0).toUpperCase() + medTxt.slice(1) + ' cette semaine. Avez-vous une douleur ou une gêne dont vous aimeriez parler ?';
+    }
+    const psy = weekIndex % 2 === 1 || (facts && facts.moodDrop >= 0.8);
+    if (psy) IV.psy.forEach(x => plan.push(Object.assign({}, x)));
+    return plan;
+  }
+  function followUpNeeded(answer) {
+    const t = normalize(answer);
+    return /\b(mal|douleur|douleurs|gene|fatigue|fatiguee|epuise|epuisee|mauvais|mauvaise|difficile|dur|inquiet|inquiete|stress|stresse|stressee|tendu|tendue|triste|peu|pas bien|moins)\b/.test(t);
+  }
+  function interviewSummary(itv, facts, nameOf) {
+    const med = [], psy = [];
+    const who = nameOf ? nameOf(itv.a) : '';
+    if (facts) {
+      const bits = [];
+      if (facts.sleep7 !== null && facts.sleep7 !== undefined) bits.push('sommeil moyen ' + fmt.hours(facts.sleep7) + (facts.sleepBase ? ' (habituel : ' + fmt.hours(facts.sleepBase) + ')' : ''));
+      if (facts.mood7 !== null && facts.mood7 !== undefined) bits.push('humeur ' + fmt.num(facts.mood7, 1) + ' sur 5');
+      if (facts.alerts) bits.push(facts.alerts + ' alerte' + (facts.alerts > 1 ? 's' : '') + ' dans la semaine');
+      if (facts.partialMed) bits.push(facts.partialMed + ' : effet partiel ou nul plusieurs fois');
+      if (facts.reaction) bits.push('temps de réaction médian ' + fmt.num(facts.reaction.median, 0) + ' ms' + (facts.reaction.prev ? ' (habituel : ' + fmt.num(facts.reaction.prev, 0) + ' ms)' : ''));
+      if (bits.length) med.push('Données de la semaine : ' + bits.join(', ') + '.');
+    }
+    (itv.answers || []).forEach(an => {
+      const line = an.label + ' : ' + (an.skipped ? 'question passée.' : (an.text || '').trim().replace(/\s+/g, ' ') + (/[.!?]$/.test((an.text || '').trim()) ? '' : '.'));
+      (an.part === 'psy' ? psy : med).push(line);
+    });
+    if (itv.flags && itv.flags.length) med.unshift('Signe d’alarme repéré pendant l’entretien : ' + itv.flags.join(', ') + '. Alerte déclenchée à bord.');
+    return {
+      med: (who ? 'Entretien ' + (/^[AEIOUYÂÀÉÈÊËÎÏÔÖÛÜ]/i.test(who) ? 'd’' : 'de ') + who + '. ' : '') + med.join('\n'),
+      psy: psy.length ? psy.join('\n') : ''
+    };
   }
 
   /* ================================================================== */
@@ -783,8 +943,10 @@
     terrestrialReading, evaluate, expectedTrajectory, processMeasurement, validateDrift, maintainDrift,
     layers, describe,
     co2Level, radiationRate, radiationProjection,
-    analyzeSymptom, doseUnits, medFlags, responseSummary, simulatePharmacy,
+    analyzeSymptom, doseUnits, medFlags, responseSummary, simulatePharmacy, simulateMission,
     analyzeWellbeing, processQueue,
+    detectRedFlags, actionChecks, planActions, reactionStats,
+    interviewPlan, followUpNeeded, interviewSummary,
     normalize, tokenize, expandQuery, buildIndex, search
   };
 });

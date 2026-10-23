@@ -232,8 +232,73 @@
       text: 'Après des mois sans pesanteur, se lever peut provoquer un malaise : le cœur et les vaisseaux ont perdu l’habitude de lutter contre la gravité. Sur Mars, à 0,38 g, les premiers jours demandent de la prudence avant tout effort.',
       tags: 'gravité malaise lever vertige retour atterrissage Mars orthostatique',
       sources: ['general']
+    },
+    {
+      id: 'signes-alarme',
+      title: 'Les signes qui demandent d’alerter tout de suite',
+      text: 'Certains signes passent avant tout calcul : douleur dans la poitrine, difficulté à respirer, perte de connaissance, saignement important, faiblesse d’un côté du corps ou parole difficile, gorge ou lèvres qui gonflent, mal de tête brutal et très violent, convulsions, confusion soudaine, envie de se faire du mal. Dans ces cas, AURA déclenche l’alerte et affiche les premiers gestes, même si les autres mesures sont normales. Prévenez la médecin de bord sans attendre.',
+      tags: 'urgence alarme grave poitrine respirer souffle connaissance malaise saignement avc paralysie convulsion alerte appeler',
+      sources: ['aura']
+    },
+    {
+      id: 'conference-semaine',
+      title: 'La conférence médicale de la semaine',
+      text: 'Sur la Station spatiale internationale, chaque astronaute a chaque semaine un entretien médical privé d’environ 15 minutes avec son médecin de vol. Vers Mars, le délai rend ce rendez-vous en direct impossible : l’assistant d’AURA pose les questions habituelles (sommeil, repas, exercice, digestion, charge de travail, douleurs, et une semaine sur deux le moral et les relations), puis prépare un résumé. Vous relisez le résumé et choisissez ce qui part vers le médecin au sol. La partie psychologique ne part qu’avec votre accord.',
+      tags: 'conference entretien medecin semaine rendez vous resume psychologue confidentiel accord',
+      sources: ['nasaPmc'], context: 'link'
+    },
+    {
+      id: 'reaction-test',
+      title: 'Le test de réaction',
+      text: 'Le test de réaction dure 3 minutes : un signal apparaît toutes les 1 à 4 secondes et vous répondez le plus vite possible. Une réponse au-delà de 355 millisecondes compte comme lente. Ce test, utilisé sur la Station spatiale internationale sous le nom de Reaction Self Test, repère surtout la fatigue et le manque de sommeil. Il ne mesure pas vos compétences.',
+      tags: 'reaction vigilance fatigue test temps reflexe attention sommeil lent',
+      sources: ['basner2011']
+    },
+    {
+      id: 'respiration-pause',
+      title: 'Une pause de respiration lente',
+      text: 'Respirer lentement, environ six fois par minute (cinq secondes pour inspirer, cinq pour expirer), pendant quelques minutes, aide beaucoup de personnes à faire baisser la tension du moment. AURA propose cette pause dans la page Bien-être, avec un guide visuel et un paysage de la Terre. Si le stress dure ou empêche de dormir, parlez-en à la médecin de bord.',
+      tags: 'respiration stress calme relaxation angoisse anxiete detente pause',
+      sources: ['general']
+    },
+    {
+      id: 'conflits-equipage',
+      title: 'Les tensions dans l’équipage',
+      text: 'Pendant la simulation Mars-520, deux membres d’équipage, les plus stressés et les plus fatigués, représentaient 85 % des conflits ressentis. La fatigue et le stress rendent les tensions plus fréquentes. Quelques habitudes aident : parler tôt d’une gêne, en privé, avec un fait précis ; garder un moment à soi chaque jour ; répartir les tâches pénibles à tour de rôle ; faire une pause quand le ton monte.',
+      tags: 'conflit tension dispute equipage relation collegue enerve irrite colere',
+      sources: ['basner2014']
+    },
+    {
+      id: 'ia-fiches',
+      title: 'Comment l’assistant d’AURA répond',
+      text: 'L’assistant cherche d’abord les fiches de bord qui parlent de votre question, puis répond seulement avec elles et cite chaque fiche. Si aucune fiche ne répond, il le dit au lieu d’inventer. Dans une étude en médecine aérospatiale, un modèle qui cherchait ainsi dans des documents a donné 85 % de bonnes réponses, contre 70 % et 55 % pour deux modèles qui répondaient de mémoire. Sans intelligence artificielle connectée, AURA affiche directement les passages des fiches.',
+      tags: 'ia intelligence artificielle assistant source fiche invente reponse fiable',
+      sources: ['anderson2025', 'buras2025']
+    },
+    {
+      id: 'eva-medicaments',
+      title: 'Médicaments qui endorment et sorties extravéhiculaires',
+      text: 'Certains médicaments du bord peuvent donner de la somnolence : la prométhazine et la scopolamine contre les nausées, le zolpidem et la mélatonine pour dormir. Avant de proposer un traitement, AURA regarde les tâches prévues dans les 24 heures. Si une sortie extravéhiculaire est prévue, il signale le risque, propose d’abord ce qui n’endort pas et demande l’avis de la médecin de bord, qui peut aussi décaler la sortie.',
+      tags: 'somnolence sortie eva extravehiculaire scaphandre medicament endort sommeil nausee',
+      sources: ['aura']
     }
   ];
+
+  /* Fiches générées à partir de la pharmacie de bord (une par médicament) */
+  function medCards(DATA) {
+    return DATA.meds.map(m => {
+      const n = m.dose;
+      const u = m.units + (n > 1 ? 's' : '');
+      const follow = m.followUp >= 1440 ? Math.round(m.followUp / 1440) + ' jour' + (m.followUp >= 2880 ? 's' : '') : m.followUp >= 60 ? Math.round(m.followUp / 60) + ' h' : m.followUp + ' minutes';
+      return {
+        id: 'med-' + m.id,
+        title: m.name + ' : usage à bord',
+        text: m.name + ' est à bord pour : ' + m.use.toLowerCase() + '. Dose standard : ' + n + ' ' + u + ' par prise, au plus ' + m.maxPerDay + ' par jour, sauf dose différente validée par la médecin de bord. AURA demande l’effet ressenti ' + follow + ' après chaque prise. ' + (m.drowsy ? 'Ce médicament peut donner de la somnolence : à éviter avant une sortie extravéhiculaire sans avis médical.' : 'Il ne donne pas de somnolence connue aux doses habituelles.') + ' Lot de démonstration, périmé à J+' + m.expiryDay + '.',
+        tags: m.name + ' ' + m.use + ' medicament dose prise combien fois jour comprime intervalle',
+        sources: ['aura'], context: 'med:' + m.id
+      };
+    });
+  }
 
   /* Expressions et synonymes (formes sans accents, en minuscules) */
   const synonyms = [
@@ -275,8 +340,23 @@
     ['haut', ['elevee', 'hausse']],
     ['monte', ['hausse', 'elevee']],
     ['augmente', ['hausse', 'elevee']],
-    ['maux de tete', ['cephalee', 'migraine']]
+    ['maux de tete', ['cephalee', 'migraine']],
+    ['poitrine', ['thoracique', 'alarme']],
+    ['respirer', ['respiration', 'souffle']],
+    ['stress', ['respiration', 'calme']],
+    ['angoisse', ['stress', 'respiration']],
+    ['dispute', ['conflit', 'tension']],
+    ['collegue', ['equipage', 'conflit']],
+    ['reflexe', ['reaction', 'vigilance']],
+    ['sortie', ['extravehiculaire', 'eva']],
+    ['combien de fois', ['dose', 'jour']],
+    ['tous les combien', ['dose', 'intervalle']],
+    ['paracetamol', ['medicament', 'dose']],
+    ['doliprane', ['paracetamol']],
+    ['advil', ['ibuprofene']],
+    ['ia', ['intelligence', 'assistant']],
+    ['psychologue', ['moral', 'entretien']]
   ];
 
-  return { cards, synonyms };
+  return { cards, synonyms, medCards };
 });

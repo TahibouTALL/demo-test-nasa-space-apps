@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AURA : santé de l’équipage</title>
-<meta name="description" content="AURA, plateforme de suivi de la santé des astronautes pour les missions vers Mars : repères médicaux adaptés aux conditions du vol, alertes, pharmacie, liaison avec la Terre. NASA Space Apps Challenge 2026, Dakar.">
+<meta name="description" content="AURA, plateforme de suivi de la santé des astronautes pour les missions vers Mars : repères médicaux adaptés aux conditions du vol, signes d’alarme, pharmacie, entretien de la semaine avec l’IA, liaison avec la Terre. NASA Space Apps Challenge 2026, Dakar.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -18,22 +18,27 @@
 <div class="app">
   <header class="topbar" id="top"></header>
   <div id="urgency" class="urgency" hidden></div>
-  <nav class="sidebar nav" id="nav" aria-label="Navigation principale"></nav>
+  <nav class="sidebar" id="nav" aria-label="Navigation principale"></nav>
   <main id="main" tabindex="-1">
-    <div class="page"><h1>AURA</h1><p class="lead">Chargement de la plateforme…</p>
+    <div class="page calm"><h1 class="hello">AURA</h1><p class="lead">Chargement de la plateforme…</p>
       <noscript><p>AURA a besoin de JavaScript pour calculer les repères médicaux dans votre navigateur. Activez-le pour utiliser la plateforme.</p></noscript>
     </div>
   </main>
 </div>
+<nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
 <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 <div class="tooltip" id="tooltip" role="tooltip"></div>
 <script src="js/data.js"></script>
 <script src="js/kb.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/store.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/ui.js"></script>
-<script src="js/views-a.js"></script>
-<script src="js/views-b.js"></script>
+<script src="js/views-core.js"></script>
+<script src="js/views-crew.js"></script>
+<script src="js/views-doctor.js"></script>
+<script src="js/views-shared.js"></script>
+<script src="js/relax.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

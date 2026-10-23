@@ -13,8 +13,19 @@
   function esc(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  const LEVEL = { normal: 'Normal', vigilance: 'Vigilance', urgence: 'Alerte', info: 'Information' };
-  function pill(level, text) { return '<span class="pill ' + esc(level) + '">' + esc(text || LEVEL[level] || level) + '</span>'; }
+  const LEVEL = { normal: 'Dans la zone', vigilance: 'À regarder', urgence: 'Alerte', info: 'Information' };
+  const CLS = { normal: 'calm', vigilance: 'attention', urgence: 'urgent', info: 'info', accent: 'calm', calm: 'calm', attention: 'attention', urgent: 'urgent', plain: 'info plain' };
+  function cls(level) { return CLS[level] || 'info'; }
+  function pill(level, text) { return '<span class="pill ' + cls(level) + '">' + esc(text || LEVEL[level] || level) + '</span>'; }
+  function orb(level, opts) {
+    opts = opts || {};
+    const c = level === 'urgence' || level === 'urgent' ? ' urgent' : level === 'vigilance' || level === 'attention' ? ' attention' : '';
+    return '<span class="orb' + c + (opts.live ? ' live' : '') + (opts.sm ? ' sm' : '') + '" aria-hidden="true"></span>';
+  }
+  function avatar(name, opts) {
+    opts = opts || {};
+    return '<span class="avatar' + (opts.lg ? ' lg' : '') + (opts.doc ? ' doc' : '') + '" aria-hidden="true">' + esc(opts.text || initials(name)) + '</span>';
+  }
   function src(id) {
     const s = D.SOURCES[id];
     if (!s) return '';
@@ -60,19 +71,21 @@
   /* ------------------------------------------------------------------ */
   function contentWidth() {
     const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    if (w <= 640) return w - 32;
-    if (w <= 980) return w - 40;
-    return Math.min(1120, w - 248 - 72);
+    if (w <= 900) return w - 40;
+    if (w <= 1180) return Math.min(1120, w - 236 - 64);
+    return Math.min(1120, w - 236 - 96);
   }
   function layoutWidth(kind) {
     const c = contentWidth();
-    const two = typeof window !== 'undefined' && window.innerWidth > 980;
-    if (kind === 'wide-left' && two) return Math.floor((c - 40) * 1.6 / 2.6);
-    if (kind === 'half' && two) return Math.floor((c - 40) / 2);
+    const wide = typeof window !== 'undefined' && window.innerWidth > 900;
+    if (kind === 'calm') return Math.min(860, c);
+    if (kind === 'wide-left' && wide) return Math.floor((c - 44) * 1.55 / 2.55);
+    if (kind === 'half' && wide) return Math.floor((c - 40) / 2);
     return c;
   }
+  // Largeur utile dans un panneau (padding de 24 px, 18 px sur téléphone)
   function readingInner(kind) {
-    const pad = (typeof window !== 'undefined' && window.innerWidth <= 640) ? 34 : 46;
+    const pad = (typeof window !== 'undefined' && window.innerWidth <= 640) ? 38 : 50;
     return layoutWidth(kind) - pad;
   }
 
@@ -175,6 +188,27 @@
       (showHard ? '<span><i class="key hard"></i>Seuil fixe de sécurité</span>' : '') +
       '</div>';
     return s + legend;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Bande aura : la zone de la personne, et où se place la valeur         */
+  /* ------------------------------------------------------------------ */
+  function abar(cfg, ev, opts) {
+    opts = opts || {};
+    const one = cfg.oneSided === 'low';
+    const lo0 = ev.wide[0], hi0 = one ? cfg.plausible.max : ev.wide[1];
+    let lo = Math.min(lo0, ev.value), hi = Math.max(hi0, ev.value);
+    const pad = (hi - lo) * 0.18 || 1;
+    lo -= pad; hi = one ? Math.max(hi, cfg.plausible.max) + pad * 0.2 : hi + pad;
+    const P = v => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    const z0 = P(ev.wide[0]), z1 = P(one ? cfg.plausible.max : ev.wide[1]);
+    const c0 = P(ev.band[0]), c1 = P(one ? cfg.plausible.max : ev.band[1]);
+    const lv = ev.level === 'urgence' ? ' urgent' : ev.level === 'vigilance' ? ' attention' : '';
+    const label = opts.label || ('Valeur ' + f.unit(ev.value, cfg) + ', zone habituelle ' + (one ? 'au-dessus de ' + f.unit(ev.band[0], cfg) : 'de ' + f.unit(ev.band[0], cfg) + ' à ' + f.unit(ev.band[1], cfg)));
+    return '<div class="abar" role="img" aria-label="' + esc(label) + '"><span class="abar-track"></span>' +
+      '<span class="abar-zone" style="left:' + z0.toFixed(1) + '%;width:' + (z1 - z0).toFixed(1) + '%"></span>' +
+      '<span class="abar-core" style="left:' + c0.toFixed(1) + '%;width:' + (c1 - c0).toFixed(1) + '%"></span>' +
+      '<span class="abar-dot' + lv + '" style="left:' + P(ev.value).toFixed(1) + '%"></span></div>';
   }
 
   /* ------------------------------------------------------------------ */
@@ -321,7 +355,7 @@
       points: bars.map((b, i) => ({ x: b.x, y: b.pct, i, b })),
       tip: p => [[f.pct(p.b.pct, 1), 'des missions simulées'], ['de ' + f.num(Math.round(p.b.a), 0) + ' à ' + f.num(Math.round(p.b.b), 0) + ' ' + (o.unitLabel || ''), p.b.a >= o.stock ? 'au-delà du stock : rupture' : 'couvert par le stock']]
     };
-    const legend = '<div class="legend"><span><i class="key" style="background:var(--ink-2)"></i>Missions couvertes par le stock</span><span><i class="key" style="background:var(--alert)"></i>Missions en rupture</span><span><i class="key line"></i>Stock à bord</span></div>';
+    const legend = '<div class="legend"><span><i class="key" style="background:var(--ink-2)"></i>Missions couvertes par le stock</span><span><i class="key" style="background:var(--red)"></i>Missions en rupture</span><span><i class="key line"></i>Stock à bord</span></div>';
     return '<div class="chart">' + legend + s + '</div>';
   }
 
@@ -397,5 +431,5 @@
   }
   function resetCharts() { Object.keys(charts).forEach(k => { delete charts[k]; }); }
 
-  root.AURA_UI = { esc, pill, LEVEL, src, sources, plural, initials, first, ruler, xyChart, histogram, valuesTable, mount, resetCharts, tipHide, niceTicks, linear, contentWidth, layoutWidth, readingInner };
+  root.AURA_UI = { esc, pill, cls, orb, avatar, abar, LEVEL, src, sources, plural, initials, first, ruler, xyChart, histogram, valuesTable, mount, resetCharts, tipHide, niceTicks, linear, contentWidth, layoutWidth, readingInner };
 })(typeof self !== 'undefined' ? self : this);

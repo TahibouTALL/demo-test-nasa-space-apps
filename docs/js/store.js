@@ -9,8 +9,8 @@
 })(typeof self !== 'undefined' ? self : this, function (DATA, E) {
   'use strict';
 
-  const VERSION = 4;
-  const KEY = 'aura.etat.v4';
+  const VERSION = 5;
+  const KEY = 'aura.etat.v5';
   const SEED = 20261114;
   const DAY = 1440;
   const METRIC_IDS = ['temp', 'hr', 'spo2'];
@@ -27,6 +27,9 @@
   DATA.symptoms.forEach(x => { symptomById[x.id] = x; });
 
   function name(id) { return crewById[id] ? crewById[id].name : 'Équipage'; }
+  // « de Lucas », « d’Aminata » : élision devant une voyelle
+  function de(n) { n = String(n || ''); return (/^[AEIOUYÂÀÉÈÊËÎÏÔÖÛÜ]/i.test(n) ? 'd’' : 'de ') + n; }
+  function deName(id) { return de(name(id)); }
   function nextId(s, p) { s.seq += 1; return p + s.seq.toString(36); }
   function dayOf(t) { return Math.floor(t / DAY); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -74,7 +77,8 @@
       alerts: [], emergency: null, todo: [],
       stock, factor, admins: [], symptoms: [], wb: [],
       queue: [], inbox: [], vals: [], questions: [], journal: [],
-      events: [], seq: 1, sim: { sensors: true }, scenario: null, creating: false
+      events: [], seq: 1, sim: { sensors: true }, scenario: null, step: 0, creating: false,
+      chats: {}, interviews: [], reactions: [], ground: { read: {}, acts: {} }, later: {}
     };
   }
 
@@ -108,6 +112,10 @@
       if (al.st !== 'close' && s.now - al.t > 2 * DAY) { al.st = 'close'; al.closeT = al.t + DAY; al.closeNote = 'Revue lors de la conférence hebdomadaire.'; }
     });
     s.todo = s.todo.filter(td => s.now - td.t < DAY);
+    // Au sol, tout ce qui est arrivé avant la veille a déjà été lu
+    s.queue.forEach(it => { if (it.status === 'reçu' && it.arrAt < s.now - 18 * 60) s.ground.read[it.id] = it.arrAt; });
+    // Les messages de la Terre arrivés avant la veille ont été lus à bord
+    s.inbox.forEach(m => { if (m.status === 'reçu' && m.arrAt < s.now - 18 * 60) m.read = true; });
     return s;
   }
 
@@ -185,6 +193,7 @@
   function dailyPlan(d) {
     const plan = [{ m: 7 * 60, kind: 'mesures' }, { m: 21 * 60, kind: 'bienetre' }, { m: 22 * 60, kind: 'paquet' }];
     if (d > 0 && d % 7 === 0) plan.push({ m: 18 * 60, kind: 'rapport' });
+    if (d > 0 && (d % 7 === 1 || d % 7 === 4)) plan.push({ m: 8 * 60 + 30, kind: 'reaction' });
     return plan;
   }
 
@@ -230,12 +239,17 @@
       case 'bienetre':
         simulateWellbeing(s, d, task.te);
         break;
-      case 'paquet':
-        enqueue(s, { t: task.te, title: 'Données de santé du jour (' + E.fmt.day(d) + ')', kind: 'donnees', prio: 3, kb: 180, reply: false });
+      case 'paquet': {
+        const pk = packet(s, d, task.te);
+        enqueue(s, { t: task.te, title: 'Données de santé du jour (' + E.fmt.day(d) + ')', kind: 'donnees', prio: 3, kb: 180, reply: false, body: pk.body, snap: pk.snap });
+        break;
+      }
+      case 'reaction':
+        simulateReaction(s, d, task.te);
         break;
       case 'rapport': {
         const rep = weeklyReport(s, d);
-        enqueue(s, { t: task.te, title: 'Rapport médical hebdomadaire (' + E.fmt.day(rep.start) + ' à ' + E.fmt.day(rep.end) + ')', kind: 'rapport', prio: 3, kb: 60 + 12 * rep.points.length, reply: true, points: rep.points.map(p => p.text).slice(0, 2) });
+        enqueue(s, { t: task.te, title: 'Rapport médical hebdomadaire (' + E.fmt.day(rep.start) + ' à ' + E.fmt.day(rep.end) + ')', kind: 'rapport', prio: 3, kb: 60 + 12 * rep.points.length, reply: true, points: rep.points.map(p => p.text).slice(0, 2), body: reportText(s, rep) });
         log(s, task.te, 'rapport', 'Rapport hebdomadaire préparé et mis en file vers la Terre.');
         break;
       }
@@ -311,6 +325,34 @@
     if (s.wb.length > 4000) s.wb.splice(0, s.wb.length - 4000);
   }
 
+  // Test de réaction simulé (PVT-B) : plus lent quand le sommeil baisse
+  function simulateReaction(s, d, te) {
+    const cfg = DATA.wellbeingHelp.reaction;
+    DATA.crew.forEach((c, i) => {
+      const t = te + i * 5;
+      const r = E.rng(E.seedFor(s.seed, 'reaction', c.id, d));
+      const an = E.analyzeWellbeing(s.wb.filter(w => w.a === c.id && w.t <= t), d);
+      const sleep = an.sleep7 === null ? c.wb.sleep : an.sleep7;
+      const deficit = Math.max(0, 6.2 - sleep);
+      const median = Math.round(c.truth.rt + 40 * deficit + E.gauss(r) * 6);
+      const n = 44 + Math.floor(r() * 6);
+      const lapses = Math.max(0, Math.round(0.6 + 3.2 * deficit + E.gauss(r) * 0.8));
+      s.reactions.push({ id: nextId(s, 'x'), t, a: c.id, median, lapses, n, falseStarts: r() < 0.2 ? 1 : 0, src: 'sim', lapse: cfg.lapse });
+    });
+    if (s.reactions.length > 1200) s.reactions.splice(0, s.reactions.length - 1200);
+  }
+
+  // Test de réaction fait à bord (vrais temps mesurés dans le navigateur)
+  function addReaction(s, o) {
+    const cfg = DATA.wellbeingHelp.reaction;
+    const st = E.reactionStats(o.rts || [], o.falseStarts || 0, cfg);
+    if (!st.n) return null;
+    const rec = { id: nextId(s, 'x'), t: s.now, a: o.a, median: Math.round(st.median), lapses: st.lapses, n: st.n, falseStarts: st.falseStarts, src: 'saisie', lapse: cfg.lapse, secs: o.secs || cfg.seconds };
+    s.reactions.push(rec);
+    log(s, s.now, 'bienetre', 'Test de réaction fait par ' + name(o.a) + ' : ' + rec.median + ' ms en médiane.', o.a);
+    return rec;
+  }
+
   function checkCo2(s, t, out) {
     const v = co2At(s, t);
     const cfg = DATA.habitat.co2;
@@ -378,13 +420,36 @@
     log(s, s.now, 'alerte', 'Alerte close : ' + al.title + (note ? ' (' + note + ')' : '') + '.', al.a);
     return al;
   }
-  function startEmergency(s, kind, t, cause) {
+  function startEmergency(s, kind, t, cause, opts) {
+    opts = opts || {};
     if (s.emergency && !s.emergency.end) return s.emergency;
-    const p = DATA.protocols[kind];
-    s.emergency = { kind, t, cause, title: p.title, steps: p.steps.map(label => ({ label, done: false })), over: null, end: null };
-    enqueue(s, { t, title: 'Alerte prioritaire : ' + p.title.toLowerCase() + ' (' + cause + ')', kind: 'alerte', prio: 1, kb: 12, reply: true });
-    log(s, t, 'urgence', 'Mode urgence : ' + p.title + '. Message prioritaire mis en tête de file vers la Terre.');
+    let p = DATA.protocols[kind];
+    if (kind === 'alarme') {
+      const fl = DATA.redFlags.find(x => x.id === opts.flag) || DATA.redFlags[0];
+      p = { title: 'Signe d’alarme : ' + fl.label.charAt(0).toLowerCase() + fl.label.slice(1), steps: fl.steps };
+    }
+    s.emergency = { kind, t, cause, title: p.title, steps: p.steps.map(label => ({ label, done: false })), over: null, end: null, a: opts.a || null, flag: opts.flag || null };
+    enqueue(s, { t, title: 'Alerte prioritaire : ' + p.title.charAt(0).toLowerCase() + p.title.slice(1) + ' (' + cause + ')', kind: 'alerte', prio: 1, kb: 12, reply: true, a: opts.a || null, body: cause + '. Procédure engagée à bord : ' + p.steps.join(' ; ') + '.' });
+    log(s, t, 'urgence', 'Mode urgence : ' + p.title + '. Message prioritaire mis en tête de file vers la Terre.', opts.a || null);
     return s.emergency;
+  }
+
+  // Un signe d’alarme passe avant tout autre calcul (F5)
+  function reportRedFlag(s, o) {
+    const fl = DATA.redFlags.find(x => x.id === o.flag);
+    if (!fl) return null;
+    const t = o.t !== undefined ? o.t : s.now;
+    const who = name(o.a);
+    const src = { assistant: 'écrit à l’assistant', conference: 'pendant l’entretien de la semaine', symptome: 'signalé', urgence: 'signalé avec le bouton urgence' }[o.src] || 'signalé';
+    const al = raiseAlert(s, {
+      t, lv: 'urgence', kind: 'alarme', a: o.a, ref: o.a + ':alarme:' + fl.id,
+      title: 'Signe d’alarme : ' + fl.label.charAt(0).toLowerCase() + fl.label.slice(1) + ' (' + who + ')',
+      crew: (fl.care ? 'Ce que vous ressentez compte. La médecin de bord est prévenue : ne restez pas seul.' : 'La médecin de bord est prévenue. Suivez les premiers gestes affichés.') + ' Les autres mesures ne changent rien : ce signe passe avant tout calcul.',
+      doctor: fl.doctorNote + ' Signe ' + src + (o.text ? ' : « ' + String(o.text).slice(0, 160) + ' »' : '') + '.'
+    });
+    log(s, t, 'urgence', 'Signe d’alarme ' + src + ' par ' + who + ' : ' + fl.label.toLowerCase() + '.', o.a);
+    const em = startEmergency(s, 'alarme', t, fl.label + ' (' + who + ')', { flag: fl.id, a: o.a });
+    return { alert: al, emergency: em, flag: fl };
   }
   function toggleStep(s, i) {
     if (!s.emergency || !s.emergency.steps[i]) return;
@@ -434,7 +499,7 @@
 
     if (res.status === 'retake') {
       if (o.src !== 'sim') s.todo.push({ id: nextId(s, 'r'), kind: 'reprise', a: o.a, k: o.k, ref: rec.id, t });
-      log(s, t, 'mesure', cfg.short + ' de ' + name(o.a) + ' très éloignée des mesures récentes (' + E.fmt.unit(rec.v, cfg) + ') : nouvelle mesure demandée avant toute alerte.', o.a);
+      log(s, t, 'mesure', cfg.short + ' ' + deName(o.a) + ' très éloignée des mesures récentes (' + E.fmt.unit(rec.v, cfg) + ') : nouvelle mesure demandée avant toute alerte.', o.a);
       return out;
     }
     rec.ab = res.absorbed ? 1 : 0;
@@ -446,7 +511,7 @@
     if (ev.level === 'normal') {
       if (active && active.lv === 'vigilance') { active.st = 'close'; active.closeT = t; active.closeNote = 'Mesure suivante dans la plage attendue.'; }
     } else {
-      const title = (ev.level === 'urgence' ? 'Alerte : ' : 'Vigilance : ') + cfg.lc + ' de ' + name(o.a);
+      const title = (ev.level === 'urgence' ? 'Alerte : ' : 'Vigilance : ') + cfg.lc + ' ' + deName(o.a);
       const crewTxt = out.text.crew + ' ' + out.action.crew;
       const docTxt = out.text.doctor + ' ' + out.action.doctor;
       if (active && (active.lv === ev.level || active.lv === 'urgence')) {
@@ -455,12 +520,12 @@
         if (active) { active.st = 'close'; active.closeT = t; active.closeNote = 'Remplacée par une alerte plus élevée.'; }
         out.alert = raiseAlert(s, { t, lv: ev.level, kind: 'mesure', a: o.a, k: o.k, ref: key, title, crew: crewTxt, doctor: docTxt, v: rec.v });
       }
-      log(s, t, 'mesure', cfg.short + ' de ' + name(o.a) + ' : ' + E.fmt.unit(rec.v, cfg) + ', ' + (ev.level === 'urgence' ? 'alerte' : 'vigilance') + ' (z = ' + E.fmt.signed(ev.z, 1) + ').', o.a);
-      if (ev.hard) startEmergency(s, 'vital', t, cfg.short + ' de ' + name(o.a) + ' : ' + E.fmt.unit(rec.v, cfg));
+      log(s, t, 'mesure', cfg.short + ' ' + deName(o.a) + ' : ' + E.fmt.unit(rec.v, cfg) + ', ' + (ev.level === 'urgence' ? 'alerte' : 'vigilance') + ' (z = ' + E.fmt.signed(ev.z, 1) + ').', o.a);
+      if (ev.hard) startEmergency(s, 'vital', t, cfg.short + ' ' + deName(o.a) + ' : ' + E.fmt.unit(rec.v, cfg));
     }
     if (res.flags.indexOf('drift') >= 0) {
       s.vals.unshift({ id: nextId(s, 'v'), t, kind: 'derive', a: o.a, k: o.k, st: 'ouverte', drift: res.filter.drift });
-      log(s, t, 'mesure', 'Décalage persistant de la ' + cfg.lc + ' de ' + name(o.a) + ' : validation du médecin demandée.', o.a);
+      log(s, t, 'mesure', 'Décalage persistant de la ' + cfg.lc + ' ' + deName(o.a) + ' : validation du médecin demandée.', o.a);
     }
     if (o.src !== 'sim') log(s, t, 'mesure', 'Mesure saisie : ' + cfg.lc + ' ' + E.fmt.unit(rec.v, cfg) + ' pour ' + name(o.a) + ', ' + (ev.level === 'normal' ? 'dans la plage attendue' : 'hors plage') + '.', o.a);
     if (s.meas.length > 7000) s.meas.splice(0, s.meas.length - 7000);
@@ -474,7 +539,7 @@
     if (decision === 'valider') s.filters[v.a][v.k] = E.validateDrift(cfg, s.filters[v.a][v.k], s.now / DAY);
     else s.filters[v.a][v.k] = E.maintainDrift(s.filters[v.a][v.k]);
     v.st = decision === 'valider' ? 'validee' : 'maintenue'; v.dt = s.now;
-    log(s, s.now, 'medecin', (decision === 'valider' ? 'Nouvelle référence validée' : 'Référence maintenue') + ' pour la ' + cfg.lc + ' de ' + name(v.a) + '.', v.a);
+    log(s, s.now, 'medecin', (decision === 'valider' ? 'Nouvelle référence validée' : 'Référence maintenue') + ' pour la ' + cfg.lc + ' ' + deName(v.a) + '.', v.a);
     return v;
   }
 
@@ -552,7 +617,7 @@
     const old = s.factor[medId].f;
     s.factor[medId] = { f: Number(f), note: note || '', t: s.now };
     log(s, s.now, 'medecin', 'Dose validée de ' + medById[medId].name + ' : facteur ' + E.fmt.num(old, 2) + ' → ' + E.fmt.num(Number(f), 2) + (note ? ' (« ' + note + ' »)' : '') + '.');
-    enqueue(s, { t: s.now, title: 'Changement de dose à confirmer : ' + medById[medId].name, kind: 'message', prio: 2, kb: 4, reply: true });
+    enqueue(s, { t: s.now, title: 'Changement de dose à confirmer : ' + medById[medId].name, kind: 'message', prio: 2, kb: 4, reply: true, body: 'Facteur de dose de ' + medById[medId].name + ' passé de ' + E.fmt.num(old, 2) + ' à ' + E.fmt.num(Number(f), 2) + '. Justification : ' + (note || 'non précisée') + '.' });
   }
   function responses(s, a, medId) {
     return E.responseSummary(s.admins.filter(x => x.a === a && x.med === medId));
@@ -576,6 +641,28 @@
   /* ------------------------------------------------------------------ */
   /* Liaison avec la Terre                                                */
   /* ------------------------------------------------------------------ */
+  // Destinataires d’un message venu de la Terre : 'all' (tout l’équipage),
+  // 'doctor' (médecin de bord) ou l’identifiant d’un membre. Les rapports
+  // médicaux de l’équipage ne reviennent qu’à la médecin de bord.
+  const DOCTOR_ID = (DATA.crew.find(c => /médecin/i.test(c.role)) || DATA.crew[0]).id;
+  function audienceOf(it) {
+    if (it.to) return it.to;
+    if (it.kind === 'rapport' || it.kind === 'synthese' || it.kind === 'donnees') return 'doctor';
+    if (it.a) return it.a;
+    return it.kind === 'alerte' ? 'all' : 'doctor';
+  }
+  function toOf(m) { return m.to || (m.a ? m.a : 'all'); }
+  // viewer : identifiant d’un membre (vue de l’équipage) ou 'doctor' (vue clinique)
+  function canRead(m, viewer) {
+    const to = toOf(m);
+    if (to === 'all' || to === viewer) return true;
+    if (viewer === 'doctor') return to === DOCTOR_ID || (to !== 'doctor' && !m.priv);
+    return false;
+  }
+  function audienceLabel(m) {
+    const to = toOf(m);
+    return to === 'all' ? 'tout l’équipage' : to === 'doctor' ? 'la médecin de bord' : name(to);
+  }
   function enqueue(s, o) {
     const it = Object.assign({ id: nextId(s, 'q'), sentAt: null, arrAt: null, status: 'en attente', replied: false }, o);
     s.queue.push(it);
@@ -585,10 +672,12 @@
   function replyFor(it, gs, arr) {
     let text;
     if (it.kind === 'alerte') text = 'Alerte reçue. Le médecin au sol confirme la procédure engagée à bord. Envoyez un point de situation dans une heure.';
-    else if (it.kind === 'rapport') text = 'Rapport reçu.' + (it.points && it.points.length ? ' Point retenu pour la conférence : ' + it.points[0].charAt(0).toLowerCase() + it.points[0].slice(1) : ' Rien à signaler côté médecin au sol.');
+    else if (it.kind === 'rapport') text = 'Rapport reçu.' + (it.points && it.points.length ? ' Point retenu pour la conférence : « ' + it.points[0].replace(/\.$/, '') + ' ».' : ' Rien à signaler côté médecin au sol.');
+    else if (it.kind === 'conference') text = 'Résumé de votre entretien bien reçu, merci. Rien d’urgent de notre côté. Nous reprendrons les points notés lors de la prochaine liaison vidéo.';
+    else if (it.kind === 'synthese') text = 'Synthèse de la semaine reçue. Les points à discuter sont notés pour la prochaine liaison vidéo.';
     else if (it.title.indexOf('dose') >= 0) text = 'Changement de dose noté. Le médecin au sol le confirmera lors de la prochaine conférence.';
     else text = 'Message reçu. Le médecin au sol vous répond lors de la prochaine conférence.';
-    return { id: 'g' + it.id, t: gs, arrAt: arr, title: 'Réponse : ' + it.title, text, from: 'Médecin au sol (réponse simulée)', read: false, status: 'en route' };
+    return { id: 'g' + it.id, t: gs, sentAt: gs, arrAt: arr, title: 'Réponse : ' + it.title, text, from: 'Médecin au sol (réponse simulée)', read: false, status: 'en route', ref: it.id, a: it.a || null, to: audienceOf(it), priv: it.kind === 'psy', kind: 'reponse' };
   }
   function refreshQueue(s) {
     E.processQueue(M, s.queue, s.inbox, s.now, replyFor);
@@ -598,7 +687,7 @@
     s.inbox = s.inbox.filter(m => !(m.status === 'reçu' && m.arrAt < limit));
   }
   function sendMessage(s, o) {
-    const it = enqueue(s, { t: s.now, title: o.title || 'Message au médecin au sol', text: o.text || '', kind: 'message', prio: o.prio || 2, kb: Math.max(1, Math.round((o.text || '').length / 500)), reply: true });
+    const it = enqueue(s, { t: s.now, title: o.title || 'Message au médecin au sol', text: o.text || '', body: o.text || '', kind: o.kind || 'message', prio: o.prio || 2, kb: Math.max(1, Math.round((o.text || '').length / 500)), reply: o.reply !== false, a: o.a || null, ai: o.ai || null });
     log(s, s.now, 'liaison', 'Message mis en file vers la Terre : « ' + it.title + ' ».');
     return it;
   }
@@ -618,6 +707,220 @@
     if (q) { q.conf = 1; log(s, s.now, 'question', 'Question ajoutée à la conférence : « ' + q.q + ' ».', q.a); }
     return q;
   }
+
+  /* ------------------------------------------------------------------ */
+  /* Paquet de données du jour (ce que le sol apprend, avec retard)       */
+  /* ------------------------------------------------------------------ */
+  function packet(s, d, t) {
+    const from = d * DAY, to = t;
+    const meas = s.meas.filter(m => m.t >= from && m.t <= to && m.st === 'processed');
+    const out = meas.filter(m => m.lv !== 'normal').length;
+    const wb = s.wb.filter(w => w.t >= from && w.t <= to).length;
+    const ads = s.admins.filter(x => x.t >= from && x.t <= to).length;
+    const snap = { t };
+    DATA.crew.forEach(c => {
+      const row = {};
+      METRIC_IDS.forEach(k => {
+        let m = null;
+        for (let i = s.meas.length - 1; i >= 0; i--) { const x = s.meas[i]; if (x.a === c.id && x.k === k && x.st === 'processed' && x.t <= to) { m = x; break; } }
+        if (m) row[k] = { v: m.v, lv: m.lv, t: m.t };
+      });
+      const an = E.analyzeWellbeing(s.wb.filter(w => w.a === c.id && w.t <= to), d);
+      row.sleep7 = an.sleep7; row.mood7 = an.mood7; row.flags = an.flags.map(f => f.doctor);
+      row.alerts = s.alerts.filter(a => a.a === c.id && a.st !== 'close').map(a => a.title);
+      snap[c.id] = row;
+    });
+    const body = meas.length + ' mesures du jour, ' + (out ? out + ' hors de la plage attendue' : 'toutes dans la plage attendue') + ' ; ' + wb + ' point' + (wb > 1 ? 's' : '') + ' du soir ; ' + ads + ' prise' + (ads > 1 ? 's' : '') + ' de médicament.';
+    return { body, snap };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Médecin au sol (F12) : ce qui est arrivé sur Terre, et les réponses  */
+  /* ------------------------------------------------------------------ */
+  function groundItems(s) {
+    return s.queue.filter(it => it.status === 'reçu').sort((a, b) => b.arrAt - a.arrAt);
+  }
+  function groundKnown(s) {
+    const pk = groundItems(s).filter(it => it.kind === 'donnees' && it.snap).sort((a, b) => b.arrAt - a.arrAt)[0];
+    return pk || null;
+  }
+  function markGroundRead(s, id) { s.ground.read[id] = s.now; }
+  function sendDown(s, o) {
+    const depart = E.linkUpAt(M, s.now);
+    const arr = depart + E.lightMinutes(M, depart / DAY);
+    const refIt = o.ref ? s.queue.find(q => q.id === o.ref) : null;
+    const to = o.to || (refIt ? audienceOf(refIt) : o.a ? o.a : 'all');
+    const msg = { id: nextId(s, 'd'), t: s.now, sentAt: depart, arrAt: arr, title: o.title || 'Message du médecin au sol', text: o.text || '', from: 'Médecin au sol', read: false, status: arr <= s.now ? 'reçu' : 'en route', ref: o.ref || null, a: o.a || (/^a\d/.test(to) ? to : null), to, priv: !!(o.priv || (refIt && refIt.kind === 'psy')), kind: o.kind || 'plan', prio: o.prio || 2, ai: o.ai || null };
+    s.inbox.push(msg);
+    if (o.ref) {
+      const it = s.queue.find(q => q.id === o.ref);
+      if (it) { it.replied = true; it.answered = s.now; }
+      s.ground.acts[o.ref] = { t: s.now, kind: o.act || 'reponse', id: msg.id };
+    }
+    refreshQueue(s);
+    return msg;
+  }
+  function inboxFor(s, viewer) {
+    return s.inbox.filter(m => m.status === 'reçu' && (!viewer || canRead(m, viewer))).sort((x, y) => y.arrAt - x.arrAt);
+  }
+  function enrouteFor(s, viewer) {
+    return s.inbox.filter(m => m.status !== 'reçu' && (!viewer || canRead(m, viewer)));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tâches prévues (sorties extravéhiculaires)                           */
+  /* ------------------------------------------------------------------ */
+  function whenText(s, t) {
+    const d = dayOf(t), today = dayOf(s.now);
+    const clock = E.fmt.clock(t % DAY);
+    if (d === today) return 'aujourd’hui à ' + clock;
+    if (d === today + 1) return 'demain à ' + clock;
+    return E.fmt.day(d) + ' à ' + clock;
+  }
+  function upcomingTasks(s, a, hours) {
+    const lim = s.now + (hours || 24) * 60;
+    return (M.tasks || []).map(tk => Object.assign({ t: tk.day * DAY + tk.minute }, tk))
+      .filter(tk => tk.t + (tk.dur || 0) >= s.now && tk.t <= lim && (!a || tk.crew.indexOf(a) >= 0))
+      .map(tk => Object.assign(tk, { when: whenText(s, tk.t) }));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Proposition d’action pour un symptôme (F6)                           */
+  /* ------------------------------------------------------------------ */
+  function actionOptions(s, a, symId, severe) {
+    const sy = symptomById[symId];
+    if (!sy || !sy.meds.length) return null;
+    const stocks = {}, factors = {};
+    sy.meds.forEach(id => { stocks[id] = s.stock[id]; factors[id] = s.factor[id].f; });
+    return E.planActions(sy.meds.map(id => medById[id]), {
+      stocks, factors, day: s.now / DAY, tasks: upcomingTasks(s, a, 36),
+      light: E.lightMinutes(M, s.now / DAY), blackout: E.isBlackout(M, s.now / DAY), severe: !!severe
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Bien-être : sommeil, moral, temps de réaction                        */
+  /* ------------------------------------------------------------------ */
+  function reactionTrend(s, a) {
+    const list = s.reactions.filter(x => x.a === a && x.t <= s.now).sort((x, y) => x.t - y.t);
+    if (list.length < 3) return { list, last: list[list.length - 1] || null, base: null, recent: null, slower: false };
+    const base = list.slice(0, Math.min(6, list.length - 2)).reduce((x, r) => x + r.median, 0) / Math.min(6, list.length - 2);
+    const rec = list.slice(-2);
+    const recent = rec.reduce((x, r) => x + r.median, 0) / rec.length;
+    return { list, last: list[list.length - 1], base, recent, slower: recent > base * 1.08 };
+  }
+  function wellbeingState(s, a) {
+    const d = dayOf(s.now);
+    const an = E.analyzeWellbeing(s.wb.filter(w => w.a === a && w.t <= s.now), d);
+    const rt = reactionTrend(s, a);
+    const flags = an.flags.slice();
+    if (rt.slower) flags.push({ code: 'reaction', crew: 'Vos temps de réaction sont plus lents que d’habitude (' + E.fmt.num(rt.recent, 0) + ' ms contre ' + E.fmt.num(rt.base, 0) + ' ms).', doctor: 'Temps de réaction médian ' + E.fmt.num(rt.recent, 0) + ' ms contre ' + E.fmt.num(rt.base, 0) + ' ms de référence (+' + E.fmt.num((rt.recent / rt.base - 1) * 100, 0) + ' %).' });
+    const heavy = flags.some(f => f.code === 'humeur-basse') || flags.length >= 3;
+    return { an, rt, flags, level: heavy ? 'moderate' : flags.length ? 'light' : 'none' };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Conférence de la semaine (F7) : faits, entretien, envoi              */
+  /* ------------------------------------------------------------------ */
+  function weekFacts(s, a, endDay) {
+    const end = endDay === undefined ? dayOf(s.now) : endDay;
+    const wbs = s.wb.filter(w => w.a === a && w.t <= s.now);
+    const an = E.analyzeWellbeing(wbs, end);
+    // Sommeil habituel : les quatre premières semaines de la mission
+    const early = wbs.filter(w => dayOf(w.t) >= 1 && dayOf(w.t) <= 28);
+    const sleepBase = early.length >= 7 ? early.reduce((x, w) => x + w.sleep, 0) / early.length : an.sleepPrev;
+    let sleepFrom = null;
+    if (sleepBase !== null && an.sleep7 !== null && sleepBase - an.sleep7 >= 0.5) {
+      const byDay = {};
+      wbs.forEach(w => { const d = dayOf(w.t); (byDay[d] = byDay[d] || []).push(w.sleep); });
+      const val = d => { let sum = 0, n = 0; for (let k = d - 1; k <= d + 1; k++) (byDay[k] || []).forEach(v => { sum += v; n++; }); return n ? sum / n : null; };
+      for (let d0 = end - 27; d0 <= end; d0++) {
+        let okAll = true;
+        for (let d = d0; d < end; d++) { const v = val(d); if (v !== null && v > sleepBase - 0.5) { okAll = false; break; } }
+        if (okAll && val(d0) !== null) { sleepFrom = d0; break; }
+      }
+      if (sleepFrom === null) sleepFrom = end - 6;
+    }
+    let partialMed = null, partialSleep = false;
+    DATA.meds.forEach(m => { const r = responses(s, a, m.id); if (r.hint && !partialMed) { partialMed = m.name.split(' ')[0]; partialSleep = m.id === 'zolpidem' || m.id === 'melatonine'; } });
+    const from = (end - 6) * DAY;
+    const rt = reactionTrend(s, a);
+    return {
+      end, sleep7: an.sleep7, sleepPrev: an.sleepPrev, sleepBase, sleepDrop: sleepBase !== null && an.sleep7 !== null ? sleepBase - an.sleep7 : 0, sleepFrom,
+      mood7: an.mood7, moodPrev: an.moodPrev, moodDrop: an.moodPrev !== null && an.mood7 !== null ? an.moodPrev - an.mood7 : 0,
+      stress7: an.stress7, partialMed, partialSleep,
+      alerts: s.alerts.filter(x => x.a === a && x.t >= from).length,
+      symptoms: s.symptoms.filter(x => x.a === a && x.t >= from).map(x => symptomById[x.sym].label),
+      reaction: rt.recent ? { median: rt.recent, prev: rt.base } : null,
+      flags: an.flags.map(f => f.crew)
+    };
+  }
+  function currentInterview(s, a) {
+    const week = Math.floor(dayOf(s.now) / 7);
+    return s.interviews.filter(x => x.a === a && x.week === week).sort((x, y) => y.t - x.t)[0] || null;
+  }
+  function startInterview(s, a, o) {
+    o = o || {};
+    const week = Math.floor(dayOf(s.now) / 7);
+    const facts = weekFacts(s, a);
+    const plan = E.interviewPlan(DATA.interview, facts, week);
+    const itv = { id: nextId(s, 'i'), a, t: s.now, week, plan, step: 0, answers: [], status: 'en cours', ai: o.ai || null, followed: {}, flags: [], summary: null, consent: { med: true, psy: false }, sentId: null };
+    s.interviews.push(itv);
+    if (s.interviews.length > 120) s.interviews.splice(0, s.interviews.length - 120);
+    log(s, s.now, 'conference', 'Entretien de la semaine commencé par ' + name(a) + '.', a);
+    return itv;
+  }
+  function answerInterview(s, id, o) {
+    const itv = s.interviews.find(x => x.id === id);
+    if (!itv || itv.status !== 'en cours') return null;
+    const topic = itv.plan[itv.step] || { id: 'fin', part: 'med', label: 'Pour finir' };
+    itv.answers.push({ topic: topic.id, part: topic.part, label: topic.label, q: o.q || topic.q, text: o.text || '', skipped: !!o.skipped, follow: !!o.follow, t: s.now });
+    if (!o.follow) itv.step += 1;
+    if (o.followAsked) itv.followed[topic.id] = 1;
+    return itv;
+  }
+  function finishInterview(s, id, summary, ai) {
+    const itv = s.interviews.find(x => x.id === id);
+    if (!itv) return null;
+    itv.status = 'terminé'; itv.tEnd = s.now;
+    itv.summary = summary || E.interviewSummary(itv, weekFacts(s, itv.a), name);
+    if (ai) itv.summaryAi = ai;
+    return itv;
+  }
+  function sendInterview(s, id, consent, texts) {
+    const itv = s.interviews.find(x => x.id === id);
+    if (!itv) return null;
+    itv.consent = { med: consent.med !== false, psy: !!consent.psy };
+    if (texts) itv.summary = { med: texts.med !== undefined ? texts.med : itv.summary.med, psy: texts.psy !== undefined ? texts.psy : itv.summary.psy };
+    const parts = [];
+    if (itv.consent.med && itv.summary.med) parts.push('Partie médicale\n' + itv.summary.med);
+    if (itv.consent.psy && itv.summary.psy) parts.push('Partie psychologique (partagée avec l’accord ' + deName(itv.a) + ')\n' + itv.summary.psy);
+    if (!parts.length) { itv.status = 'gardé à bord'; log(s, s.now, 'conference', 'Entretien de la semaine ' + deName(itv.a) + ' gardé à bord, rien n’est envoyé.', itv.a); return { itv, item: null }; }
+    const body = parts.join('\n\n');
+    const it = enqueue(s, { t: s.now, title: 'Entretien de la semaine : ' + name(itv.a), kind: 'conference', prio: 2, kb: Math.max(2, Math.round(body.length / 400)), reply: true, a: itv.a, body, ai: itv.summaryAi || null });
+    itv.status = 'envoyé'; itv.sentId = it.id; itv.tSent = s.now;
+    log(s, s.now, 'conference', 'Résumé de l’entretien ' + deName(itv.a) + ' mis en file vers le médecin au sol' + (itv.consent.psy ? ', partie psychologique comprise avec son accord' : ', sans la partie psychologique') + '.', itv.a);
+    return { itv, item: it };
+  }
+  function flagInterview(s, id, flagIds) {
+    const itv = s.interviews.find(x => x.id === id);
+    if (!itv) return null;
+    flagIds.forEach(f => { const fl = DATA.redFlags.find(x => x.id === f); if (fl && itv.flags.indexOf(fl.label) < 0) itv.flags.push(fl.label); });
+    itv.status = 'interrompu';
+    return itv;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Conversations avec l’assistant (une par profil)                      */
+  /* ------------------------------------------------------------------ */
+  function chatAdd(s, key, msg) {
+    const list = s.chats[key] = s.chats[key] || [];
+    const m = Object.assign({ id: nextId(s, 'c'), t: s.now }, msg);
+    list.push(m);
+    if (list.length > 80) list.splice(0, list.length - 80);
+    return m;
+  }
+  function chatClear(s, key) { s.chats[key] = []; }
 
   /* ------------------------------------------------------------------ */
   /* Séries pour les graphiques                                           */
@@ -696,9 +999,18 @@
     DATA.meds.forEach(m => {
       E.medFlags(m, s.stock[m.id], end, M).filter(fl => fl.level !== 'info').forEach(fl => points.push({ who: null, kind: 'pharmacie', text: m.name + ' : ' + fl.text.charAt(0).toLowerCase() + fl.text.slice(1) + '.' }));
     });
-    s.vals.filter(v => v.st === 'ouverte').forEach(v => points.push({ who: v.a, kind: 'medecin', text: 'Décalage persistant de la ' + DATA.metrics[v.k].lc + ' de ' + name(v.a) + ' à valider.' }));
+    s.vals.filter(v => v.st === 'ouverte').forEach(v => points.push({ who: v.a, kind: 'medecin', text: 'Décalage persistant de la ' + DATA.metrics[v.k].lc + ' ' + deName(v.a) + ' à valider.' }));
+    DATA.crew.forEach(c => {
+      const list = s.reactions.filter(x => x.a === c.id && x.t < to).sort((x, y) => x.t - y.t);
+      if (list.length < 4) return;
+      const n0 = Math.min(6, list.length - 2);
+      const base = list.slice(0, n0).reduce((x, r) => x + r.median, 0) / n0;
+      const rec = list.slice(-2).reduce((x, r) => x + r.median, 0) / 2;
+      if (rec > base * 1.08) points.push({ who: c.id, kind: 'bienetre', text: c.name + ' : temps de réaction plus lent (' + E.fmt.num(rec, 0) + ' ms contre ' + E.fmt.num(base, 0) + ' ms), à rapprocher du sommeil.' });
+    });
+    s.interviews.filter(x => x.t >= from && x.t < to && x.flags && x.flags.length).forEach(x => points.push({ who: x.a, kind: 'alerte', text: 'Signe d’alarme pendant l’entretien ' + deName(x.a) + ' : ' + x.flags.join(', ') + '.' }));
     const questions = s.questions.filter(q => q.conf && q.t < to);
-    questions.forEach(q => points.push({ who: q.a, kind: 'question', text: 'Question de ' + name(q.a) + ' : « ' + q.q + ' »' }));
+    questions.forEach(q => points.push({ who: q.a, kind: 'question', text: 'Question ' + deName(q.a) + ' : « ' + q.q + ' »' }));
     const admins = s.admins.filter(inWeek);
     const symptoms = s.symptoms.filter(inWeek);
     return {
@@ -751,37 +1063,44 @@
         break;
       case 's2':
         s = createState({ day: 70, minute: 7 * 60 + 25 });
-        s.me = 'a2'; s.role = 'crew';
         extra = { measure: { a: 'a2', k: 'temp', v: 38.1, auto: true } };
         break;
       case 's3':
         s = createState({ day: 30, minute: 9 * 60 + 55 });
-        s.me = 'a4'; s.role = 'crew';
         extra = { symptom: { a: 'a4', sym: 'cephalee', intensity: 5, auto: true } };
         break;
       case 's4': {
         s = createState({ day: 58, minute: 13 * 60 + 30 });
         s.events.push({ kind: 'spe', start: 58 * DAY + 13 * 60 + 40, end: 58 * DAY + 23 * 60 + 40, factor: 40 });
         advanceTo(s, 58 * DAY + 14 * 60);
-        s.role = 'crew';
         break;
       }
       case 's5':
         s = createState({ day: 63, minute: 18 * 60 + 30 });
-        s.role = 'doctor';
         extra = { reportEnd: 63 };
         break;
       case 's6':
         s = createState({ day: 446, minute: 9 * 60 });
-        s.role = 'crew';
         // Une demande d’avis envoyée pendant la coupure : elle partira avant les données de routine.
-        enqueue(s, { t: 444 * DAY + 10 * 60, title: 'Demande d’avis : sommeil de l’équipage depuis la coupure', kind: 'message', prio: 2, kb: 6, reply: true });
+        enqueue(s, { t: 444 * DAY + 10 * 60, title: 'Demande d’avis : sommeil de l’équipage depuis la coupure', kind: 'message', prio: 2, kb: 6, reply: true, body: 'Depuis le début de la conjonction, deux membres d’équipage dorment moins de six heures. Faut-il adapter le planning ?' });
+        break;
+      case 's7':
+        s = createState({ day: 58, minute: 10 * 60 + 15 });
+        extra = { assistant: { a: 'a2', text: 'J’ai très mal à la poitrine depuis dix minutes, ça serre.' } };
+        break;
+      case 's8':
+        s = createState({ day: 60, minute: 20 * 60 });
         break;
       default:
         s = createState({});
     }
-    s.scenario = id;
-    log(s, s.now, 'demo', 'Démonstration : scénario « ' + DATA.scenarios.find(x => x.id === id).title + ' ».');
+    const sc = DATA.scenarios.find(x => x.id === id);
+    if (sc && sc.steps && sc.steps[0]) {
+      s.role = sc.steps[0].role;
+      if (sc.steps[0].me) s.me = sc.steps[0].me;
+    }
+    s.scenario = id; s.step = 0;
+    log(s, s.now, 'demo', 'Démonstration : scénario « ' + (sc ? sc.title : id) + ' ».');
     return { state: s, extra };
   }
 
@@ -811,13 +1130,17 @@
   }
 
   return {
-    VERSION, DAY, METRIC_IDS, name, crewById, medById, symptomById,
+    VERSION, DAY, METRIC_IDS, name, de, deName, crewById, medById, symptomById,
     createState, advanceTo, addMeasurement, decideDrift, reportSymptom, symptomContext,
     administer, recordEffect, setFactor, responses, pendingFollowUps, validatedUnits,
     addWellbeing, enqueue, sendMessage, refreshQueue, askQuestion, flagQuestion,
     seeAlert, closeAlert, startEmergency, toggleStep, endEmergency,
     co2At, co2Hours, doseRateAt, radTotalNow, speAt,
     series, lastMeasurement, explain, weeklyReport, reportText, runScenario,
+    reportRedFlag, packet, groundItems, groundKnown, markGroundRead, sendDown, inboxFor, enrouteFor, canRead, audienceOf, audienceLabel, DOCTOR_ID,
+    upcomingTasks, whenText, actionOptions, reactionTrend, wellbeingState,
+    weekFacts, currentInterview, startInterview, answerInterview, finishInterview, sendInterview, flagInterview,
+    chatAdd, chatClear, raiseAlert, addReaction,
     save, load, clear, dayOf
   };
 });
