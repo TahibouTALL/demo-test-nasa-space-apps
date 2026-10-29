@@ -43,6 +43,8 @@
     when(t) {
       return fmt.day(Math.floor(t / 1440)) + ', ' + fmt.clock(t % 1440);
     },
+    // Délai de la lumière : en secondes près de la Terre, en minutes rondes ensuite
+    delay(min) { return min < 1 ? fmt.dur(min) : fmt.dur(Math.round(min)); },
     dur(min) {
       if (min === null || min === undefined) return 'n.d.';
       if (min < 1) return Math.max(1, Math.round(min * 60)) + NBSP + 's';
@@ -841,6 +843,7 @@
       const medTxt = 'le ' + facts.partialMed.toLowerCase() + ' n’a pas toujours suffi';
       if (facts.partialSleep && sleep) sleep.q += ' Et ' + medTxt + ' ces derniers soirs.';
       else if (gene) gene.q = medTxt.charAt(0).toUpperCase() + medTxt.slice(1) + ' cette semaine. Avez-vous une douleur ou une gêne dont vous aimeriez parler ?';
+      else { const bien = plan.find(x => x.id === 'bienetre'); if (bien) bien.q = medTxt.charAt(0).toUpperCase() + medTxt.slice(1) + ' cette semaine. ' + bien.q; }
     }
     const psy = weekIndex % 2 === 1 || (facts && facts.moodDrop >= 0.8);
     if (psy) IV.psy.forEach(x => plan.push(Object.assign({}, x)));
@@ -866,9 +869,9 @@
       const line = an.label + ' : ' + (an.skipped ? 'question passée.' : (an.text || '').trim().replace(/\s+/g, ' ') + (/[.!?]$/.test((an.text || '').trim()) ? '' : '.'));
       (an.part === 'psy' ? psy : med).push(line);
     });
-    if (itv.flags && itv.flags.length) med.unshift('Signe d’alarme repéré pendant l’entretien : ' + itv.flags.join(', ') + '. Alerte déclenchée à bord.');
+    if (itv.flags && itv.flags.length) med.unshift('Signe d’alarme repéré pendant la conférence : ' + itv.flags.join(', ') + '. Alerte déclenchée à bord.');
     return {
-      med: (who ? 'Entretien ' + (/^[AEIOUYÂÀÉÈÊËÎÏÔÖÛÜ]/i.test(who) ? 'd’' : 'de ') + who + '. ' : '') + med.join('\n'),
+      med: (who ? 'Conférence ' + (/^[AEIOUYÂÀÉÈÊËÎÏÔÖÛÜ]/i.test(who) ? 'd’' : 'de ') + who + (itv.mode === 'differe' ? ', réponses au médecin au sol. ' : itv.mode === 'ia' ? ', menée par l’IA. ' : '. ') : '') + med.join('\n'),
       psy: psy.length ? psy.join('\n') : ''
     };
   }

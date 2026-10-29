@@ -28,7 +28,7 @@ l’effet du vol et la référence de Lucas, répond « normale pour vous en ce 
 | F4 | Normes adaptées à l’espace et à chaque personne, en cinq étapes visibles | Mesurer, Mon dossier |
 | F5 | Signes d’alarme reconnus dans toutes les saisies, mode urgence, message prioritaire vers la Terre | Urgence, Assistant, Entretien |
 | F6 | Proposition d’action adaptée au vol : six vérifications avant chaque médicament (à bord, quantité, encore bon, faisable en apesanteur, tâches à venir, délai du sol) | Je ne me sens pas bien |
-| F7 | Entretien médical de la semaine, à la voix ou par écrit, mené par l’IA ; résumé relu, partie psychologique envoyée seulement avec l’accord de la personne | Entretien de la semaine, Conférence |
+| F7 | Visioconférence médicale de 15 minutes chaque semaine pour chaque membre d’équipage : alimentation, sommeil, exercice, élimination, charge de travail, bien-être. Avec le médecin au sol tant qu’on peut se parler en direct (moins de 10 secondes de délai) ; sinon (délai, conjonction, médecin indisponible) avec AURA, personnage animé qui parle, écoute et réagit. Résumé relu, partie psychologique envoyée seulement avec l’accord de la personne | Conférence ; profil « Médecin au sol », Conférences |
 | F8 | Questions libres avec réponses tirées des fiches de bord, numérotées et sourcées ; AURA dit quand il ne sait pas | Assistant |
 | F9 | Langage adapté : simple pour l’équipage, clinique pour la médecin de bord, anglais avec une IA | partout (« Voir en langage médical ») |
 | F10 | Moral, stress et isolement : point du soir privé, test de réaction de 3 minutes, pause respiration, paysage de la Terre à 360°, conseils si l’ambiance se tend | Bien-être |
@@ -106,9 +106,10 @@ OSDR, PhysioNet, NASA-STD-3001).
 
 ## Démonstration guidée
 
-Huit scénarios, accessibles depuis **Démonstration** : préparer la pharmacie avant le départ, une fièvre
+Neuf scénarios, accessibles depuis **Démonstration** : préparer la pharmacie avant le départ, une fièvre
 qui n’en est pas une, un mal de tête dont la cause est dans la cabine, une éruption solaire, la
-conférence de la semaine avec l’IA, la conjonction solaire, un signe d’alarme qui passe avant tout, et
+visioconférence de la semaine avec le médecin au sol, la visioconférence avec AURA quand le médecin ne
+peut pas, la conjonction solaire, un signe d’alarme qui passe avant tout, et
 le moral pendant l’isolement.
 
 ## Lancer en local

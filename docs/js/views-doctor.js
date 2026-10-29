@@ -47,11 +47,13 @@
     const items = todoDoctor(A);
     body += H.section('À traiter', null, items.length ? V.todoHtml(items) : '<p class="empty">Rien à traiter pour le moment.</p>');
     const week = Math.floor(H.today(A) / 7);
-    const done = D.crew.filter(c => s.interviews.some(x => x.a === c.id && x.week === week && (x.status === 'envoyé' || x.status === 'gardé à bord' || x.status === 'terminé'))).length;
+    const confs = D.crew.map(c => S.conferenceStatus(s, c.id, week));
+    const done = confs.filter(x => x.done).length;
+    const withDoc = confs.filter(x => x.mode !== 'ia').length;
     const L = E.lightMinutes(D.mission, s.now / DAY), bo = E.isBlackout(D.mission, s.now / DAY);
     body += '<div class="cols">' +
-      H.section('Conférence de la semaine', null, '<p>' + (done ? done + ' entretien' + (done > 1 ? 's' : '') + ' sur ' + D.crew.length + ' fait' + (done > 1 ? 's' : '') + ' cette semaine.' : 'Aucun entretien fait cette semaine pour l’instant.') + ' La synthèse pour le médecin au sol se prépare à partir du journal.</p><div class="btn-row"><a class="btn sm" href="#/conference">Ouvrir la conférence</a></div>') +
-      H.section('Cabine et liaison', null, '<dl class="kv"><dt>CO₂ cabine</dt><dd>' + esc(f.num(S.co2At(s, s.now), 1)) + NB + 'mmHg</dd><dt>Dose cumulée</dt><dd>' + esc(f.num(S.radTotalNow(s), 0)) + NB + 'mSv par personne</dd><dt>Délai radio</dt><dd>' + (bo ? 'liaison coupée' : esc(f.dur(Math.round(L))) + ' dans chaque sens') + '</dd><dt>Messages en file</dt><dd>' + s.queue.filter(q => !q.sentAt).length + '</dd></dl>') + '</div>';
+      H.section('Conférences de la semaine', null, '<p>' + (done ? done + ' sur ' + D.crew.length + ' faite' + (done > 1 ? 's' : '') + '.' : 'Aucune faite pour l’instant.') + ' ' + (withDoc === D.crew.length ? 'Cette semaine, le médecin au sol les mène.' : withDoc ? withDoc + ' avec le médecin au sol, ' + (D.crew.length - withDoc) + ' avec l’IA.' : 'Cette semaine, l’IA du vaisseau les mène.') + '</p><div class="btn-row"><a class="btn sm" href="#/conference">Voir la synthèse</a></div>') +
+      H.section('Cabine et liaison', null, '<dl class="kv"><dt>CO₂ cabine</dt><dd>' + esc(f.num(S.co2At(s, s.now), 1)) + NB + 'mmHg</dd><dt>Dose cumulée</dt><dd>' + esc(f.num(S.radTotalNow(s), 0)) + NB + 'mSv par personne</dd><dt>Délai radio</dt><dd>' + (bo ? 'liaison coupée' : esc(f.delay(L)) + ' dans chaque sens') + '</dd><dt>Messages en file</dt><dd>' + s.queue.filter(q => !q.sentAt).length + '</dd></dl>') + '</div>';
     body += H.section('Journal de bord', null, V.journal(A, 8));
     return H.page({ title: 'Équipage', state: H.state(st.level, st.text, st.sub), body });
   };
@@ -204,17 +206,25 @@
   /* ------------------------------------------------------------------ */
   /* Conférence (vue médecin de bord)                                     */
   /* ------------------------------------------------------------------ */
+  // Les conférences de la semaine, sans leur contenu : qui, quand, avec qui, où on en est
+  V.confList = function (A, confs) {
+    return '<ul class="list">' + confs.map(x => {
+      const st = x.st;
+      const meta = st.done ? H.confHistoryLine(st) : st.state === 'non faite' ? 'Prévue ' + H.confWhen(A, st.t) + ', non faite.' : 'Rendez-vous ' + H.confWhen(A, st.t) + (st.mode === 'ia' ? ' : ' + H.confReason(st) + '.' : '.');
+      return '<li><div class="row"><div class="btn-row" style="flex:1 1 280px;flex-wrap:nowrap">' + UI.avatar(x.c.name) + '<div style="min-width:0"><div class="row-title">' + esc(x.c.name) + '</div><div class="row-meta">' + esc(meta) + '</div></div></div><div class="btn-row">' + H.confModePill(st) + H.confStatePill(st, { doctor: true }) + '</div></div></li>';
+    }).join('') + '</ul>';
+  };
+
   V.conferenceDoctor = function (A) {
     const s = A.s, today = H.today(A);
     const end = Math.min(today, Math.max(6, parseInt(A.route.q.fin, 10) || today));
     const rep = S.weeklyReport(s, end);
     const week = Math.floor(today / 7);
-    const itvs = D.crew.map(c => ({ c, itv: s.interviews.filter(x => x.a === c.id && x.week === week).sort((a, b) => b.t - a.t)[0] || null }));
-    const done = itvs.filter(x => x.itv && x.itv.status !== 'en cours').length;
-    const mode = V.modeNow(A);
+    const confs = D.crew.map(c => ({ c, st: S.conferenceStatus(s, c.id, week) }));
+    const done = confs.filter(x => x.st.done).length;
     let body = '';
     body += '<section class="section" style="margin-top:24px"><div class="btn-row" style="justify-content:space-between"><div class="btn-row"><a class="btn sm" href="#/conference?fin=' + (end - 7) + '">Semaine précédente</a>' + (end < today ? '<a class="btn sm" href="#/conference?fin=' + Math.min(today, end + 7) + '">Semaine suivante</a>' : '') + '</div></div></section>';
-    body += H.section('Points à discuter', 'Repérés dans le journal de la semaine : sommeil, moral, temps de réaction, traitements, alertes, cabine, questions.', rep.points.length ? '<ul class="list">' + rep.points.map(p => '<li><div class="btn-row">' + UI.pill('info', { bienetre: 'Bien-être', pharmacie: 'Pharmacie', alerte: 'Alertes', habitat: 'Cabine', medecin: 'Référence', question: 'Question' }[p.kind] || 'Point') + '<span>' + esc(p.text) + '</span></div></li>').join('') + '</ul>' : '<p class="empty">Aucun point particulier cette semaine.</p>');
+    body += H.section('Points à discuter', 'Repérés dans le journal de la semaine : sommeil, moral, temps de réaction, traitements, alertes, cabine, questions.', rep.points.length ? '<ul class="list">' + rep.points.map(p => '<li><div class="btn-row">' + UI.pill('info', { bienetre: 'Bien-être', pharmacie: 'Pharmacie', alerte: 'Alertes', habitat: 'Cabine', medecin: 'Référence', question: 'Question', conference: 'Conférence' }[p.kind] || 'Point') + '<span>' + esc(p.text) + '</span></div></li>').join('') + '</ul>' : '<p class="empty">Aucun point particulier cette semaine.</p>');
     // Synthèse
     const sy = A.flow.synth && A.flow.synth.end === end ? A.flow.synth : null;
     const busy = A.busy.synth;
@@ -232,14 +242,8 @@
       box += '<div class="ai-box">' + V.origin({ ai: null }) + '<textarea class="ai-edit" id="synth-rules" aria-label="Synthèse de la semaine">' + esc(S.reportText(s, rep)) + '</textarea><div class="btn-row" style="margin-top:12px"><button class="btn" data-act="copy-report" data-end="' + end + '">Copier le texte</button><button class="btn primary" data-act="send-report" data-end="' + end + '">Envoyer au médecin au sol</button></div></div><p class="note" style="margin-top:10px">Avec une IA connectée dans les <a href="#/reglages">réglages</a>, AURA peut rédiger une synthèse plus lisible à partir de ce même rapport. Les faits restent ceux-ci.</p>';
     }
     body += H.section('Synthèse pour le médecin au sol', null, box);
-    // Entretiens
-    let it = '<ul class="list">';
-    itvs.forEach(x => {
-      const st = !x.itv ? ['info', 'Pas encore fait'] : x.itv.status === 'en cours' ? ['info', 'En cours'] : x.itv.status === 'envoyé' ? ['normal', 'Envoyé au sol'] : x.itv.status === 'interrompu' ? ['urgence', 'Interrompu : signe d’alarme'] : x.itv.status === 'gardé à bord' ? ['info', 'Gardé à bord'] : ['info', 'À relire par la personne'];
-      it += '<li><div class="row"><div class="btn-row">' + UI.avatar(x.c.name) + '<div><div class="row-title">' + esc(x.c.name) + '</div><div class="row-meta">' + (x.itv ? 'Commencé ' + esc(H.ago(A, x.itv.t)) + (x.itv.tSent ? ', envoyé ' + esc(H.ago(A, x.itv.tSent)) : '') : 'Cette semaine') + '</div></div></div>' + UI.pill(st[0], st[1]) + '</div></li>';
-    });
-    it += '</ul><p class="note" style="margin-top:10px">Le contenu des entretiens reste privé entre chaque personne et le médecin au sol. La partie psychologique ne part qu’avec l’accord de la personne.</p>';
-    body += H.section('Entretiens de la semaine', done ? done + ' sur ' + D.crew.length + (done > 1 ? ' faits' : ' fait') + '. Chacun le fait quand il le souhaite.' : 'Aucun pour l’instant. Chacun le fait quand il le souhaite.', it);
+    // Conférences médicales de la semaine
+    body += H.section('Conférences médicales de la semaine', 'Un rendez-vous par personne et par semaine. Le médecin au sol le mène tant qu’une conversation est possible ; sinon, l’IA du vaisseau.', V.confList(A, confs) + '<p class="note" style="margin-top:10px">Le contenu des conférences reste privé entre chaque personne et le médecin au sol. La partie psychologique ne part qu’avec l’accord de la personne.</p>');
     // Mesures
     let tb = '<div class="table-wrap"><table class="table stack"><thead><tr><th>Membre d’équipage</th><th>Température</th><th>Pouls au repos</th><th>SpO₂</th><th>Sommeil</th><th>Humeur</th></tr></thead><tbody>';
     rep.crew.forEach(c => {
@@ -254,14 +258,14 @@
     body += H.section('Mesures de la semaine', 'Moyennes de la semaine, comparées à la semaine précédente.', tb);
     body += '<div class="cols">' + H.section('Cabine', null, '<dl class="kv"><dt>CO₂ moyen</dt><dd>' + esc(f.num(rep.habitat.co2Mean, 1)) + ' mmHg</dd><dt>CO₂ maximal</dt><dd>' + esc(f.num(rep.habitat.co2Max, 1)) + ' mmHg</dd><dt>Au-dessus de 3 mmHg</dt><dd>' + rep.habitat.co2Hours + ' h</dd><dt>Dose de la semaine</dt><dd>' + esc(f.num(rep.habitat.radWeek, 1)) + ' mSv</dd><dt>Cumul</dt><dd>' + esc(f.num(rep.habitat.radTotal, 0)) + ' mSv</dd></dl>') +
       H.section('Activité', null, '<dl class="kv"><dt>Alertes</dt><dd>' + rep.alerts.total + ' (' + rep.alerts.vigilance + ' vigilance, ' + rep.alerts.urgence + ' alerte)</dd><dt>Encore ouvertes</dt><dd>' + rep.alerts.open + '</dd><dt>Prises de médicament</dt><dd>' + rep.admins + '</dd><dt>Symptômes signalés</dt><dd>' + rep.symptoms + '</dd></dl>') + '</div>';
-    body += H.section('La conférence vers Mars', 'Sur l’ISS, 15 minutes par semaine en direct avec le médecin de vol. Vers Mars, le délai change le rôle de chacun.', V.modesTable(A) + UI.sources(['nasaPmc']));
-    return H.page({ title: 'Conférence de la semaine', state: H.state('normal', (done ? done + ' entretien' + (done > 1 ? 's' : '') + ' sur ' + D.crew.length + ' cette semaine. ' : 'Aucun entretien cette semaine pour l’instant. ') + (rep.points.length ? rep.points.length + ' point' + (rep.points.length > 1 ? 's' : '') + ' à discuter.' : 'Rien de particulier à discuter.'), 'Semaine de ' + esc(f.day(rep.start)) + ' à ' + esc(f.day(rep.end)) + '. ' + esc(mode.label) + ' : le médecin au sol ' + esc(mode.doctor.charAt(0).toLowerCase() + mode.doctor.slice(1)) + '.'), body });
+    body += '<details class="disclose" style="margin-top:28px"><summary>Qui mène la conférence, et pourquoi</summary>' + V.confExplain(A, null) + '</details>';
+    return H.page({ title: 'Synthèse de la semaine', state: H.state('normal', (done ? done + ' conférence' + (done > 1 ? 's' : '') + ' sur ' + D.crew.length + ' faite' + (done > 1 ? 's' : '') + ' cette semaine. ' : 'Aucune conférence faite cette semaine pour l’instant. ') + (rep.points.length ? rep.points.length + ' point' + (rep.points.length > 1 ? 's' : '') + ' à discuter.' : 'Rien de particulier à discuter.'), 'Semaine de ' + esc(f.day(rep.start)) + ' à ' + esc(f.day(rep.end)) + '. Délai radio : ' + (E.isBlackout(D.mission, s.now / DAY) ? 'liaison coupée.' : esc(f.delay(E.lightMinutes(D.mission, s.now / DAY))) + ' dans chaque sens.')), body });
   };
 
   /* ------------------------------------------------------------------ */
   /* Médecin au sol (F12)                                                 */
   /* ------------------------------------------------------------------ */
-  const KIND = { alerte: 'Alerte prioritaire', conference: 'Entretien de la semaine', rapport: 'Rapport de la semaine', synthese: 'Synthèse de la semaine', donnees: 'Données du jour', message: 'Message', psy: 'Demande d’entretien' };
+  const KIND = { alerte: 'Alerte prioritaire', conference: 'Conférence de la semaine', 'conf-prep': 'Conférence en direct', rapport: 'Rapport de la semaine', synthese: 'Synthèse de la semaine', donnees: 'Données du jour', message: 'Message', psy: 'Demande d’entretien' };
   function groundState(A) {
     const s = A.s;
     const items = S.groundItems(s);
@@ -271,7 +275,7 @@
     const urgent = unread.find(it => it.prio === 1);
     const last = items[0];
     const text = urgent ? 'Une alerte prioritaire est arrivée du vaisseau.' : unread.length ? (unread.length > 1 ? unread.length + ' nouvelles informations' : 'Une nouvelle information') + ' du vaisseau.' : 'Rien de nouveau depuis votre dernière lecture.';
-    const sub = bo ? 'La liaison est coupée par la conjonction solaire jusqu’à ' + f.day(D.mission.conjunction.end) + ' : rien n’arrive, rien ne part.' : 'Ce que vous voyez a au moins ' + f.dur(Math.round(L)) + ' de retard : c’est le temps du trajet de la lumière depuis le vaisseau.' + (last ? ' Dernière arrivée ' + H.since(A, last.arrAt) + '.' : '');
+    const sub = bo ? 'La liaison est coupée par la conjonction solaire jusqu’à ' + f.day(D.mission.conjunction.end) + ' : rien n’arrive, rien ne part.' : 'Ce que vous voyez a au moins ' + f.delay(L) + ' de retard : c’est le temps du trajet de la lumière depuis le vaisseau.' + (last ? ' Dernière arrivée ' + H.since(A, last.arrAt) + '.' : '');
     return { level: urgent ? 'urgence' : unread.length ? 'vigilance' : 'normal', text, sub };
   }
 
@@ -343,6 +347,83 @@
     const hidden = items.length - shown.length;
     body += '<div class="btn-row" style="margin-top:14px">' + (A.route.q.tout ? '<a class="btn quiet" href="#/">Voir seulement le plus récent</a>' : (hidden > 0 || all.length > items.length ? '<a class="btn quiet" href="#/?tout=1">Voir tout l’historique reçu</a>' : '')) + '</div>';
     return H.page({ title: 'Reçu du vaisseau', state: H.state(st.level, st.text, st.sub), body });
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Médecin au sol : les conférences de la semaine                       */
+  /* ------------------------------------------------------------------ */
+  function groundConfState(g) {
+    const map = { 'à préparer': ['info', 'Questions à envoyer'], 'questions envoyées': ['info', 'Questions envoyées'], 'réponses reçues': ['normal', 'Réponses reçues'], 'répondue': ['normal', 'Répondue'], 'prévue': ['info', 'Prévue'], 'à faire': ['info', 'À faire'], 'faite': ['normal', 'Faite'], 'avec l’IA': ['info', 'Menée par l’IA'] };
+    const m = map[g.state] || ['info', g.state];
+    return UI.pill(m[0], m[1]);
+  }
+  function answersBlock(A, it, open) {
+    const text = String(it.body || '');
+    return open ? '<p class="g-body" style="margin-top:12px">' + esc(text) + '</p>' : '<details class="more" style="margin-top:10px"><summary>Voir ' + (it.mode === 'differe' ? 'les réponses' : 'le résumé') + '</summary><p class="g-body" style="margin-top:8px">' + esc(text) + '</p></details>';
+  }
+  function confCard(A, c, g) {
+    const s = A.s, first = H.first(c.name);
+    const linkOk = g.linkMode !== 'ia';
+    let h = '<article class="panel conf-card" id="conf-' + c.id + '"><div class="conf-head">' + UI.avatar(c.name, { lg: true }) + '<div class="who"><div class="row-title">' + esc(c.name) + '</div><div class="conf-meta">' + esc(c.role) + ', rendez-vous ' + esc(H.confWhen(A, g.t)) + ', heure de bord</div></div><div class="btn-row">' + H.confModePill(g) + groundConfState(g) + '</div></div><div class="conf-body">';
+    const unavailBtn = '<button class="btn sm quiet" data-act="conf-unavail" data-a="' + c.id + '" data-week="' + g.week + '">Je ne suis pas disponible</button>';
+    const answersPart = () => {
+      let b = '<p style="margin:0">' + (g.answers.mode === 'differe' ? 'Réponses ' + esc(S.de(first)) : 'Résumé de la conférence ' + esc(S.de(first)) + ' avec l’IA') + ', arrivé' + (g.answers.mode === 'differe' ? 'es' : '') + ' ' + esc(H.since(A, g.answers.arrAt)) + (g.answers.sim ? ' (réponses simulées)' : '') + '.</p>';
+      b += answersBlock(A, g.answers, !g.reply);
+      if (g.reply) {
+        const auto = /simulée/.test(g.reply.from || '');
+        b += '<div class="callout calm" style="margin-top:12px"><p><b>' + (auto ? 'Réponse automatique envoyée (démonstration)' : 'Réponse envoyée ' + esc(H.ago(A, g.reply.t))) + '</b>, ' + (g.reply.status === 'reçu' ? 'arrivée à bord à ' : 'arrivée prévue à ') + esc(f.clock(g.reply.arrAt % DAY)) + '.</p>' + (auto && A.ui.reply !== g.answers.id ? '<div class="btn-row" style="margin-top:6px"><button class="btn quiet sm" data-act="reply-open" data-id="' + g.answers.id + '">Compléter la réponse</button></div>' : '') + '</div>';
+      } else if (A.ui.reply !== g.answers.id) b += '<div class="btn-row" style="margin-top:12px"><button class="btn primary sm" data-act="reply-open" data-id="' + g.answers.id + '">Répondre à ' + esc(first) + '</button></div>';
+      if (A.ui.reply === g.answers.id) b += replyBox(A, g.answers);
+      return b;
+    };
+    if (g.answers) h += answersPart();
+    else if (g.mode === 'differe') {
+      if (!g.questions.length) {
+        h += '<p style="margin:0">AURA a préparé vos questions à partir des données reçues. Elles partiront ' + esc(H.confWhen(A, g.sendAt)) + ', la veille du rendez-vous, sauf si vous les envoyez avant.</p>';
+        if (A.ui.confEdit === c.id) {
+          const qs = S.plannedQuestions(s, c.id, g.week);
+          h += '<form data-form="conf-questions" class="panel soft" style="margin-top:12px"><input type="hidden" name="a" value="' + c.id + '"><input type="hidden" name="week" value="' + g.week + '">' +
+            qs.map((q, i) => '<div class="field"><label for="cq-' + c.id + '-' + q.id + '">' + esc((i + 1) + '. ' + q.label) + (q.part === 'psy' ? ' <span class="opt">partie psychologique, confidentielle</span>' : '') + '</label><textarea id="cq-' + c.id + '-' + q.id + '" name="q_' + q.id + '" style="min-height:64px">' + esc(q.q) + '</textarea></div>').join('') +
+            '<div class="field"><label for="cq-' + c.id + '-new">Une question à vous <span class="opt">facultatif</span></label><textarea id="cq-' + c.id + '-new" name="q_new" style="min-height:64px" placeholder="Par exemple : comment se passe la reprise après la sortie de demain ?"></textarea></div>' +
+            '<div class="btn-row"><button class="btn primary" type="submit">Envoyer maintenant</button><button class="btn quiet" type="button" data-act="conf-edit" data-a="' + c.id + '">Fermer</button></div></form>';
+        } else h += '<div class="btn-row" style="margin-top:12px"><button class="btn sm" data-act="conf-edit" data-a="' + c.id + '">Voir et modifier les questions</button>' + unavailBtn + '</div>';
+      } else {
+        const q = g.questions[0];
+        h += '<p style="margin:0">Questions envoyées ' + esc(H.ago(A, q.t)) + ', ' + (q.status === 'reçu' ? 'arrivées à bord à ' : 'arrivée prévue à ') + esc(f.clock(q.arrAt % DAY)) + (q.auto ? ', préparées par AURA' : '') + '. Les réponses ' + esc(S.de(first)) + ' arriveront ici, avec ' + esc(f.delay(g.delay)) + ' de délai.</p>';
+        const all = [];
+        g.questions.forEach(m => (m.qs || []).forEach(x => { if (!all.some(y => y.id === x.id)) all.push(x); }));
+        h += '<details class="more" style="margin-top:10px"><summary>Voir les ' + all.length + ' questions</summary><ol class="small" style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink-2)">' + all.map(x => '<li style="margin:4px 0">' + esc(x.q) + '</li>').join('') + '</ol></details>';
+        h += '<form data-form="conf-addq" class="btn-row" style="margin-top:12px;align-items:flex-end"><input type="hidden" name="a" value="' + c.id + '"><input type="hidden" name="week" value="' + g.week + '"><div class="field" style="margin:0;flex:1 1 280px"><label for="caq-' + c.id + '">Ajouter une question</label><input id="caq-' + c.id + '" name="text" type="text" placeholder="Elle rejoindra les autres à bord"></div><button class="btn sm" type="submit">Envoyer</button></form>';
+        h += '<div class="btn-row" style="margin-top:10px">' + unavailBtn + '</div>';
+      }
+    } else if (g.mode === 'direct') {
+      if (g.state === 'faite') h += '<p style="margin:0">Visioconférence faite' + (g.live && g.live.tDone ? ' ' + esc(H.ago(A, g.live.tDone)) : '') + '.' + (g.notes ? ' Compte rendu envoyé à bord.' : '') + '</p>' + (g.notes ? '<p class="g-body" style="margin-top:8px">' + esc(g.notes.text) + '</p>' : '');
+      else {
+        h += '<p style="margin:0">Visioconférence de 15 minutes ' + esc(H.confWhen(A, g.t)) + ', avec ' + esc(f.delay(g.delay)) + ' de délai : vous vous parlez comme sur l’ISS. Six sujets : alimentation, sommeil, exercice, élimination, charge de travail et bien-être.</p>';
+        if (g.prep) h += '<div class="callout calm" style="margin-top:12px"><p><b>Ce que ' + esc(first) + ' veut aborder</b>, reçu ' + esc(H.since(A, g.prep.arrAt)) + ' : « ' + esc(g.prep.body) + ' »</p></div>';
+        h += '<form data-form="conf-close" class="panel soft" style="margin-top:12px"><input type="hidden" name="a" value="' + c.id + '"><input type="hidden" name="week" value="' + g.week + '"><div class="field"><label for="cc-' + c.id + '">Compte rendu, envoyé à ' + esc(first) + ' <span class="opt">facultatif</span></label><textarea id="cc-' + c.id + '" name="notes" style="min-height:90px" placeholder="Ce qui a été dit, ce qui est convenu pour la semaine."></textarea></div><div class="btn-row"><button class="btn primary" type="submit">Conférence faite</button>' + unavailBtn + '</div></form>';
+      }
+    } else {
+      h += '<p style="margin:0">Cette semaine, AURA, l’IA du vaisseau, mène la visioconférence ' + esc(S.de(first)) + ' : ' + esc(H.confReason(g)) + '. Le résumé relu par ' + esc(first) + ' arrivera ici, et vous pourrez lui répondre.</p>';
+      if (g.unavailable && linkOk) h += '<div class="btn-row" style="margin-top:12px"><button class="btn sm" data-act="conf-avail" data-a="' + c.id + '" data-week="' + g.week + '">Je suis finalement disponible</button></div>';
+    }
+    return h + '</div></article>';
+  }
+  V.groundConferences = function (A) {
+    const s = A.s, week = S.weekOf(s.now);
+    const list = D.crew.map(c => ({ c, g: S.groundConference(s, c.id, week) }));
+    const byDoc = list.filter(x => x.g.mode !== 'ia');
+    const L = E.lightMinutes(D.mission, s.now / DAY), bo = E.isBlackout(D.mission, s.now / DAY);
+    const modes = byDoc.map(x => x.g.mode);
+    const text = byDoc.length === list.length ? 'Cette semaine, vous menez les quatre visioconférences.' : byDoc.length ? 'Cette semaine, vous menez ' + byDoc.length + ' conférence' + (byDoc.length > 1 ? 's' : '') + ' sur ' + list.length + ' ; l’IA du vaisseau mène les autres.' : 'Cette semaine, AURA, l’IA du vaisseau, mène les visioconférences.';
+    const sub = 'Semaine de ' + f.day(week * 7) + ' à ' + f.day(week * 7 + 6) + '. ' + (bo ? 'La liaison est coupée jusqu’à ' + f.day(D.mission.conjunction.end) + '.' : 'Délai : ' + f.delay(L) + ' dans chaque sens.') + ' Vous menez la visioconférence de 15 minutes tant qu’on peut se parler en direct ; sinon, AURA, l’IA du vaisseau, la mène et vous envoie le résumé.';
+    let body = '<section class="section" style="margin-top:24px">' + list.map(x => confCard(A, x.c, x.g)).join('') + '</section>';
+    // La semaine prochaine
+    const next = D.crew.map(c => S.groundConference(s, c.id, week + 1));
+    const nm = next.every(x => x.mode === next[0].mode) ? next[0] : null;
+    body += H.section('La semaine prochaine', null, '<p>' + (nm ? (nm.mode === 'ia' ? 'AURA, l’IA du vaisseau, mènera les visioconférences : ' + esc(H.confReason(nm)) + '.' : nm.mode === 'direct' ? 'Vous mènerez les visioconférences.' : 'Vous mènerez les conférences en différé ; vos questions partiront la veille de chaque rendez-vous.') : 'Selon les jours, vous mènerez certaines conférences et l’IA les autres.') + '</p>');
+    body += H.section('Qui mène la conférence, au fil de la mission', null, V.confExplain(A, null));
+    return H.page({ title: 'Conférences de la semaine', state: H.state('normal', text, sub), body });
   };
 
   V.groundCrew = function (A) {

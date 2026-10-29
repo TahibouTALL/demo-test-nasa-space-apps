@@ -68,7 +68,7 @@
     {
       id: 'moral-entretien',
       title: 'Parler de son moral',
-      text: 'Les réponses du point quotidien restent entre vous et le médecin. Quand AURA voit une baisse qui dure, il propose simplement d’en parler pendant l’entretien privé de la semaine. Ce n’est ni un diagnostic ni une évaluation de votre travail.',
+      text: 'Les réponses du point quotidien restent entre vous et le médecin. Quand AURA voit une baisse qui dure, il propose simplement d’en parler pendant la conférence privée de la semaine. Ce n’est ni un diagnostic ni une évaluation de votre travail.',
       tags: 'moral stress déprime tristesse anxiété psychologue entretien privé confidentialité',
       sources: ['aura']
     },
@@ -243,8 +243,8 @@
     {
       id: 'conference-semaine',
       title: 'La conférence médicale de la semaine',
-      text: 'Sur la Station spatiale internationale, chaque astronaute a chaque semaine un entretien médical privé d’environ 15 minutes avec son médecin de vol. Vers Mars, le délai rend ce rendez-vous en direct impossible : l’assistant d’AURA pose les questions habituelles (sommeil, repas, exercice, digestion, charge de travail, douleurs, et une semaine sur deux le moral et les relations), puis prépare un résumé. Vous relisez le résumé et choisissez ce qui part vers le médecin au sol. La partie psychologique ne part qu’avec votre accord.',
-      tags: 'conference entretien medecin semaine rendez vous resume psychologue confidentiel accord',
+      text: 'Sur la Station spatiale internationale, chaque astronaute a chaque semaine une conférence médicale privée d’environ 15 minutes avec son médecin de vol. Dans AURA, chaque membre d’équipage a aussi son rendez-vous de la semaine. Le médecin au sol la mène tant qu’une conversation est possible : en direct quand le délai est de quelques secondes, en différé jusqu’à 5 minutes de délai (ses questions arrivent la veille, il lit vos réponses et vous répond). Au-delà, pendant la conjonction solaire ou s’il n’est pas disponible, l’IA du vaisseau mène la conférence avec les mêmes questions (sommeil, repas, exercice, digestion, charge de travail, douleurs, et une semaine sur deux le moral et les relations), puis prépare un résumé. Vous relisez et choisissez ce qui part vers le médecin au sol. La partie psychologique ne part qu’avec votre accord.',
+      tags: 'conference conférence entretien medecin médecin semaine rendez vous visioconférence différé resume psychologue confidentiel accord obligatoire',
       sources: ['nasaPmc'], context: 'link'
     },
     {

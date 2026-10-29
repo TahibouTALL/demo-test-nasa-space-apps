@@ -1,7 +1,7 @@
 /* AURA : étage IA facultatif.
    Le cœur d’AURA (normes, alertes, pharmacie, file vers la Terre) ne passe
    jamais par ici. Ce module ne sert qu’à rédiger : répondre à une question à
-   partir des fiches de bord, mener l’entretien de la semaine, préparer une
+   partir des fiches de bord, mener la conférence de la semaine, préparer une
    synthèse, reformuler, proposer un message. Sans IA connectée, chaque
    fonction a une version à base de règles dans le reste de la plateforme.
 
@@ -326,16 +326,16 @@
   function interviewerSystem(o) {
     return [
       RULES,
-      'Tu mènes l’entretien médical de la semaine avec ' + o.name + ', comme le ferait son médecin de vol. Tu poses une seule question à la fois, en une ou deux phrases courtes, avec chaleur et sans jugement. Tu ne donnes pas de conseil médical pendant l’entretien et tu ne commentes pas longuement les réponses.',
+      'Tu mènes la conférence médicale de la semaine avec ' + o.name + ', à la place de son médecin au sol' + (o.reason ? ' (' + o.reason + ')' : '') + ', comme il le ferait. Tu poses une seule question à la fois, en une ou deux phrases courtes, avec chaleur et sans jugement. Tu ne donnes pas de conseil médical pendant la conférence et tu ne commentes pas longuement les réponses.',
       'Ce que tu sais déjà de sa semaine (données de bord) :\n' + o.facts
     ].join('\n\n');
   }
   function interviewTurn(o) {
     let user;
     if (o.first) {
-      user = 'Commence l’entretien : salue ' + o.first + ' en une courte phrase, puis pose la première question, que tu peux reformuler : « ' + o.next.q + ' ». Termine par la balise [SUIVANTE].';
+      user = 'Commence la conférence : salue ' + o.first + ' en une courte phrase, puis pose la première question, que tu peux reformuler : « ' + o.next.q + ' ». Termine par la balise [SUIVANTE].';
     } else if (!o.next) {
-      user = 'Dernière réponse : « ' + o.last + ' ».\nL’entretien est terminé. Remercie en une phrase et demande s’il reste quelque chose à dire au médecin au sol. Termine par la balise [FIN].';
+      user = 'Dernière réponse : « ' + o.last + ' ».\nLa conférence est terminée. Remercie en une phrase et demande s’il reste quelque chose à dire au médecin au sol. Termine par la balise [FIN].';
     } else {
       user = 'Dernière réponse : « ' + o.last + ' ».\nSujet suivant : ' + o.next.label + '. Question de base : « ' + o.next.q + ' ».\n' +
         (o.canFollow ? 'Si la dernière réponse signale une douleur, une gêne ou une inquiétude qui mérite une précision, pose d’abord UNE question de précision sur ce point et termine par la balise [PRECISION]. Sinon, ' : '') +
@@ -352,10 +352,10 @@
   function summaryPrompt(o) {
     const system = [
       RULES,
-      'Tu rédiges le résumé de l’entretien médical de la semaine de ' + o.name + ' pour le médecin au sol. Tu t’en tiens à ce qui a été dit et aux données fournies, sans rien ajouter ni interpréter au-delà.',
+      'Tu rédiges le résumé de la conférence médicale de la semaine de ' + o.name + ', menée par l’IA, pour le médecin au sol. Tu t’en tiens à ce qui a été dit et aux données fournies, sans rien ajouter ni interpréter au-delà.',
       'Réponds en deux parties, avec exactement ces titres sur leur propre ligne : « ### Partie médicale » puis « ### Partie psychologique ». La partie psychologique ne reprend que ce qui touche au moral, aux relations dans l’équipage et aux proches ; si ces sujets n’ont pas été abordés, écris « Non abordée cette semaine. ». Phrases courtes, 150 mots au plus par partie.'
     ].join('\n\n');
-    const user = 'Données de la semaine :\n' + o.facts + '\n\nEntretien :\n' + o.transcript.map(x => 'Question : ' + x.q + '\nRéponse : ' + (x.skipped ? '(question passée)' : x.text)).join('\n\n');
+    const user = 'Données de la semaine :\n' + o.facts + '\n\nConférence :\n' + o.transcript.map(x => 'Question : ' + x.q + '\nRéponse : ' + (x.skipped ? '(question passée)' : x.text)).join('\n\n');
     return { system, messages: [{ role: 'user', content: user }], maxTokens: 900 };
   }
   function parseSummary(text) {
@@ -372,10 +372,10 @@
     const system = [
       RULES,
       LEVELS.medical,
-      'Tu prépares, pour le médecin au sol, la synthèse médicale de la semaine de l’équipage. Tu t’appuies seulement sur le rapport et les entretiens fournis, sans rien ajouter.',
+      'Tu prépares, pour le médecin au sol, la synthèse médicale de la semaine de l’équipage. Tu t’appuies seulement sur le rapport et les conférences fournies, sans rien ajouter.',
       'Structure, avec ces titres : « #### Points à discuter » (puces courtes), « #### Par membre d’équipage » (une ligne par personne), « #### Habitat et pharmacie », « #### Questions pour le médecin au sol ». 260 mots au plus.'
     ].join('\n\n');
-    const user = 'Rapport de la semaine (préparé à bord par des règles) :\n' + o.report + (o.interviews ? '\n\nEntretiens de la semaine (parties partagées) :\n' + o.interviews : '');
+    const user = 'Rapport de la semaine (préparé à bord par des règles) :\n' + o.report + (o.interviews ? '\n\nConférences de la semaine (parties partagées) :\n' + o.interviews : '');
     return { system, messages: [{ role: 'user', content: user }], maxTokens: 1100 };
   }
 

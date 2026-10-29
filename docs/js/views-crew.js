@@ -10,6 +10,7 @@
   const f = E.fmt, esc = UI.esc, NB = E.NBSP, DAY = 1440;
   const METRICS = H.METRICS;
   const lower = t => t.charAt(0).toLowerCase() + t.slice(1);
+  const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   const EFFECT = { aucun: 'Aucun effet', partiel: 'Un peu', complet: 'Oui, bien' };
 
   /* ------------------------------------------------------------------ */
@@ -59,16 +60,34 @@
     s.todo.filter(td => td.kind === 'reprise' && td.a === me).forEach(td => {
       items.push({ title: 'Reprendre la mesure : ' + D.metrics[td.k].lc, meta: 'Demandée ' + H.ago(A, td.t) + ', pour confirmer une valeur isolée.', actions: '<button class="btn sm" data-act="retake" data-a="' + td.a + '" data-k="' + td.k + '" data-ref="' + td.ref + '">Reprendre</button>' });
     });
-    S.inboxFor(s, me).filter(m => !m.read && s.now - m.arrAt < 2 * DAY).slice(0, 2).forEach(m => {
+    S.inboxFor(s, me).filter(m => !m.read && s.now - m.arrAt < 2 * DAY && !/^conf-/.test(m.kind) && !(m.kind === 'reponse' && m.week !== undefined && /Conférence/.test(m.title))).slice(0, 2).forEach(m => {
       items.push({ title: m.from === 'Médecin au sol' ? 'Message du médecin au sol' : 'Réponse du sol', meta: m.title.replace(/^Réponse : /, '') + ', reçu ' + H.ago(A, m.arrAt) + '.', actions: '<a class="btn sm" href="#/liaison?msg=' + m.id + '">Lire</a>' });
     });
     const evening = s.wb.some(w => w.a === me && Math.floor(w.t / DAY) === d && w.src === 'saisie');
     if (!evening && H.hour(A) >= 16 && !later(A, 'soir')) items.push({ title: 'Votre point du soir', meta: 'Deux minutes, quand vous voulez. Vos réponses restent privées.', actions: '<a class="btn sm" href="#/bien-etre?point=1">Faire le point</a><button class="btn sm quiet" data-act="later" data-k="soir">Plus tard</button>' });
-    const itv = S.currentInterview(s, me);
-    if ((!itv || itv.status === 'en cours') && !later(A, 'conf')) items.push({ title: itv ? 'Reprendre votre entretien de la semaine' : 'Votre entretien de la semaine', meta: 'Environ cinq minutes, à la voix ou par écrit. Vous choisissez ce qui part vers la Terre.', actions: '<a class="btn sm" href="#/conference">' + (itv ? 'Reprendre' : 'Commencer') + '</a><button class="btn sm quiet" data-act="later" data-k="conf">Plus tard</button>' });
+    const conf = confTodo(A);
+    if (conf) items.push(conf);
     return items;
   }
   V.todayItems = todayItems;
+
+  // La conférence de la semaine dans « Pour aujourd’hui » : un rendez-vous, sans pression
+  function confTodo(A) {
+    const s = A.s, st = S.conferenceStatus(s, s.me);
+    const reply = st.reply && !st.reply.read ? st.reply : null;
+    if (reply) return { title: 'Réponse du médecin au sol à votre conférence', meta: 'Reçue ' + H.ago(A, reply.arrAt) + '.', actions: '<a class="btn sm" href="#/conference">Lire</a>' };
+    if (st.state === 'faite' || st.state === 'interrompue' || st.state === 'à venir' || st.state === 'questions en route') return null;
+    if (later(A, 'conf')) return null;
+    const when = H.confWhen(A, st.t);
+    const lastDay = f.day(Math.floor((st.weekEnd - 1) / DAY));
+    const after = st.slotPassed ? ' Vous pouvez encore la faire jusqu’à ' + lastDay + '.' : '';
+    const later_ = '<button class="btn sm quiet" data-act="later" data-k="conf">Plus tard</button>';
+    if (st.state === 'en cours') return { title: 'Reprendre votre visioconférence de la semaine', meta: (st.rec.mode === 'differe' ? 'Les questions du médecin au sol vous attendent là où vous les avez laissées.' : 'Elle vous attend là où vous l’avez laissée.'), actions: '<a class="btn sm" href="#/conference">Reprendre</a>' + later_ };
+    if (st.mode === 'differe') return { title: 'Votre conférence de la semaine avec le médecin au sol', meta: 'Rendez-vous ' + when + '. Ses questions sont arrivées : répondez quand vous voulez, à la voix ou par écrit.' + after, actions: '<a class="btn sm" href="#/conference">Répondre</a>' + later_ };
+    if (st.mode === 'direct') return { title: 'Votre visioconférence de la semaine avec le médecin au sol', meta: 'Rendez-vous ' + when + ', un quart d’heure. Vous pouvez noter avant ce que vous voulez aborder.' + after, actions: '<a class="btn sm" href="#/conference">' + (st.slotPassed ? 'Rejoindre' : 'Préparer') + '</a>' + later_ };
+    return { title: 'Votre visioconférence de la semaine avec AURA', meta: cap(H.confReason(st)) + (st.reason === 'delai' ? ' (' + f.delay(st.delay) + ')' : '') + ' : AURA, l’IA du vaisseau, la mène cette semaine. Un quart d’heure, quand vous voulez.' + after, actions: '<a class="btn sm" href="#/conference">Commencer</a>' + later_ };
+  }
+  V.confTodo = confTodo;
 
   function todoHtml(items) {
     return '<ul class="todo">' + items.map(it => '<li><span class="t-mark"></span><div class="t-body"><div class="t-title">' + esc(it.title) + '</div><div class="t-meta">' + esc(it.meta) + '</div></div><div class="btn-row">' + it.actions + '</div></li>').join('') + '</ul>';
@@ -94,6 +113,8 @@
     week += '<dt>Sommeil</dt><dd>' + (wb.an.sleep7 !== null ? esc(f.hours(wb.an.sleep7)) + ' par nuit en moyenne' + (sleepFlag ? ', plus court que d’habitude' : ', comme d’habitude') : 'pas encore de point du soir') + '</dd>';
     week += '<dt>Moral</dt><dd>' + (wb.an.mood7 !== null ? (moodFlag ? 'un peu plus bas que d’habitude' : wb.an.mood7 >= 3.8 ? 'plutôt bon' : 'correct') : 'n.d.') + '</dd>';
     if (wb.rt.last) week += '<dt>Réaction</dt><dd>' + esc(f.num(wb.rt.last.median, 0)) + NB + 'ms au dernier test' + (wb.rt.slower ? ', plus lent que d’habitude' : '') + '</dd>';
+    const cst = S.conferenceStatus(s, s.me);
+    week += '<dt>Conférence</dt><dd>' + esc(cst.done ? H.lc1(H.confHistoryLine(cst).replace(/\.$/, '')) : (cst.mode === 'ia' ? 'avec l’IA cette semaine' : cst.mode === 'direct' ? 'en direct avec le médecin au sol, ' + H.confWhen(A, cst.t) : 'avec le médecin au sol, ' + H.confWhen(A, cst.t))) + '</dd>';
     week += '</dl>';
     body += H.section('Votre semaine', null, '<div class="panel soft">' + week + '<div class="btn-row" style="margin-top:14px"><a class="btn sm" href="#/bien-etre">Voir le bien-être</a></div></div>');
     // Autour de vous
@@ -397,23 +418,10 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /* Entretien de la semaine (vue équipage)                               */
+  /* Conférence médicale de la semaine (vue équipage)                     */
+  /* Chaque semaine, un rendez-vous. Le médecin au sol le mène tant que   */
+  /* la conversation est possible ; sinon, l’IA du vaisseau le mène.      */
   /* ------------------------------------------------------------------ */
-  function modeNow(A) {
-    const day = A.s.now / DAY;
-    const M = D.interview.modes;
-    if (E.isBlackout(D.mission, day)) return M[3];
-    const L = E.lightMinutes(D.mission, day);
-    return L <= M[0].maxDelay ? M[0] : L <= M[1].maxDelay ? M[1] : M[2];
-  }
-  V.modeNow = modeNow;
-  function modesTable(A) {
-    const cur = modeNow(A);
-    return '<div class="table-wrap"><table class="table stack"><thead><tr><th>Situation de communication</th><th>Le médecin au sol</th><th>L’assistant d’AURA</th></tr></thead><tbody>' +
-      D.interview.modes.map(m => '<tr' + (m.id === cur.id ? ' style="background:var(--aura-soft)"' : '') + '><td data-label="Situation"><b>' + esc(m.label) + '</b>' + (m.id === cur.id ? ' ' + UI.pill('normal', 'en ce moment') : '') + '</td><td data-label="Médecin au sol">' + esc(m.doctor) + '</td><td data-label="Assistant">' + esc(m.ai) + '</td></tr>').join('') + '</tbody></table></div>';
-  }
-  V.modesTable = modesTable;
-
   function factsList(A, a) {
     const fx = S.weekFacts(A.s, a);
     const items = [];
@@ -427,74 +435,150 @@
   }
   V.factsList = factsList;
 
+  // Ce que dit la page selon qui mène la conférence cette semaine
+  function confIntro(A, st) {
+    const when = H.confWhen(A, st.t), last = Math.floor((st.weekEnd - 1) / DAY);
+    if (st.mode === 'direct') return { text: 'Cette semaine, en visioconférence avec le médecin au sol.', sub: 'Rendez-vous ' + when + ', un quart d’heure. Le délai n’est que de ' + f.delay(st.delay) + ' : vous vous parlez comme sur l’ISS.' };
+    if (st.mode === 'differe') {
+      const q = st.received[st.received.length - 1] || st.questions[st.questions.length - 1];
+      const qTxt = st.received.length ? 'Ses questions sont arrivées ' + H.confWhen(A, st.received[0].arrAt) + '.' : q ? 'Ses questions arrivent ' + H.confWhen(A, q.arrAt) + '.' : 'Ses questions arriveront la veille du rendez-vous.';
+      return { text: 'Cette semaine, avec le médecin au sol, en différé.', sub: 'Rendez-vous ' + when + '. Le délai est de ' + f.delay(st.delay) + ' : il vous envoie ses questions, vous répondez à votre rythme, il lit vos réponses à leur arrivée et vous répond. ' + qTxt };
+    }
+    return { text: 'Cette semaine, en visioconférence avec AURA.', sub: cap(H.confReason(st)) + (st.reason === 'delai' ? ' (' + f.delay(st.delay) + ' dans chaque sens)' : '') + '. AURA, l’IA du vaisseau, mène le quart d’heure sur les six sujets habituels, à la voix ou par écrit. Le médecin au sol recevra le résumé que vous aurez relu, et vous répondra. Vous pouvez la faire quand vous voulez, jusqu’à ' + f.day(last) + '.' };
+  }
+
+  function confHistory(A, me, week) {
+    const rows = [];
+    for (let w = week - 1; w >= Math.max(0, week - 6); w--) {
+      const st = S.conferenceStatus(A.s, me, w);
+      rows.push('<li><div class="row"><div style="flex:1 1 260px"><div class="row-title">Semaine de ' + esc(f.day(w * 7)) + ' à ' + esc(f.day(w * 7 + 6)) + '</div><div class="row-meta">' + esc(H.confHistoryLine(st)) + '</div></div>' + H.confModePill(st) + '</div></li>');
+    }
+    return rows.length ? '<ul class="list">' + rows.join('') + '</ul>' : '<p class="empty">C’est la première semaine de la mission.</p>';
+  }
+
+  // Avant de commencer : ce qui est prévu, et comment le faire
+  function confStart(A, st) {
+    const s = A.s, me = s.me, aiOn = A.aiReady();
+    const facts = factsList(A, me);
+    const voice = A.speech.canSpeak ? '<label class="toggle"><input type="checkbox" data-change="voice-read"' + (A.set.voice.read ? ' checked' : '') + '><span>AURA parle à voix haute</span></label>' : '';
+    let main = '';
+    if (st.mode === 'differe') {
+      if (st.received.length) {
+        const plan = [];
+        st.received.forEach(m => (m.qs || []).forEach(q => { if (!plan.some(x => x.id === q.id)) plan.push(q); }));
+        main += '<div class="panel"><div class="row"><div class="btn-row">' + UI.avatar('Médecin au sol', { doc: true, text: 'MS' }) + '<div><div class="row-title">Les questions du médecin au sol</div><div class="row-meta">Reçues ' + esc(H.ago(A, st.received[0].arrAt)) + ', ' + UI.plural(plan.length, 'question') + '</div></div></div></div>' +
+          '<ol class="small" style="margin:12px 0 0;padding-left:1.3rem;color:var(--ink-2)">' + plan.map(q => '<li style="margin:4px 0">' + esc(q.q) + '</li>').join('') + '</ol></div>';
+        main += '<div class="toggles" style="margin-top:16px">' + voice + '</div><p class="small muted" style="margin:12px 0 16px">Une question à la fois, à la voix ou au clavier. Vous pouvez en passer une. Chaque réponse est vérifiée pour les signes d’alarme, et rien ne part sans votre accord.</p>' +
+          '<button class="btn primary lg" data-act="itv-start">Répondre au médecin</button>';
+      } else {
+        const q = st.questions[0];
+        main += '<div class="callout calm"><p>' + (q ? 'Les questions du médecin au sol sont en route : arrivée ' + esc(H.confWhen(A, q.arrAt)) + '.' : 'Le médecin au sol vous enverra ses questions la veille du rendez-vous, ' + esc(H.confWhen(A, st.t - D.conference.questionsLead)) + '.') + ' Elles apparaîtront ici et sur votre page Aujourd’hui.</p></div>';
+      }
+    } else if (st.mode === 'direct') {
+      const rec = st.rec && st.rec.mode === 'direct' ? st.rec : null;
+      main += '<div class="btn-row" style="margin-bottom:16px"><button class="btn primary lg" data-act="conf-join">Rejoindre la visioconférence</button></div>';
+      main += '<form data-form="conf-prep" class="panel"><div class="field"><label for="conf-prep">Ce que vous voulez aborder <span class="opt">facultatif</span></label><textarea id="conf-prep" name="notes" placeholder="Une gêne, une question, ce qui vous occupe en ce moment.">' + esc(rec ? rec.prep || '' : '') + '</textarea><span class="hint">Le médecin au sol le lit avant la visioconférence. Le contenu reste entre vous et lui.</span></div>' +
+        '<div class="btn-row"><button class="btn" type="submit">' + (rec && rec.prep ? 'Mettre à jour' : 'Envoyer au médecin') + '</button>' + (A.speech.canListen ? '<button type="button" class="btn quiet" data-act="listen" data-target="conf-prep">' + (A.speech.listening === 'conf-prep' ? 'Arrêter la dictée' : 'Dicter') + '</button>' : '') + '</div></form>';
+      main += '<p class="note" style="margin-top:12px">Un quart d’heure sur six sujets : alimentation, sommeil, exercice, élimination, charge de travail et bien-être. L’image et le son passent par le système de communication du vaisseau ; AURA garde l’ordre du jour et le compte rendu.</p>';
+    } else {
+      main += '<div class="call" style="margin-top:0"><div class="call-stage" style="padding:14px 0 6px">' + V.buddy({}) + '<div class="call-caption"><p>Bonjour ' + esc(H.first(S.name(me))) + '. On fait le point ensemble ? Six sujets, un petit quart d’heure.</p></div></div>' +
+        '<ol class="call-topics">' + D.interview.base.map(p => '<li>' + esc(p.label) + '</li>').join('') + '</ol></div>';
+      main += '<div class="toggles" style="margin-top:16px">' + voice + '</div><p class="small muted" style="margin:12px 0 16px">' + (aiOn ? 'AURA parle avec l’IA connectée (' + esc(A.aiLabel()) + '), à partir des sujets habituels et de votre semaine.' : 'Sans IA connectée, AURA pose les questions habituelles, préparées à partir de votre semaine (<a href="#/reglages">connecter une IA</a>).') + (A.speech.canListen ? ' Vous pouvez répondre à la voix.' : '') + ' Chaque réponse est vérifiée pour les signes d’alarme.</p>' +
+        '<button class="btn primary lg" data-act="itv-start">Démarrer la visioconférence</button>';
+    }
+    let body = '<section class="section" style="margin-top:24px">' + main + '</section>';
+    body += '<section class="section"><div class="panel soft"><h3>' + 'Votre semaine en bref' + '</h3>' + (facts.length ? '<ul class="facts">' + facts.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="muted">Pas encore de données cette semaine.</p>') + '<p class="note" style="margin-top:10px">D’après vos points du soir, vos mesures et la pharmacie' + (st.mode === 'ia' ? ' : l’IA s’en sert pour ses questions.' : ' ; le médecin au sol les reçoit avec le paquet du jour.') + ' Vous pouvez les corriger pendant la conférence.</p></div></section>';
+    return body;
+  }
+
+  function confTail(A, st) {
+    return H.section('Vos dernières conférences', null, confHistory(A, A.s.me, st.week)) +
+      '<details class="disclose" style="margin-top:28px"><summary>Qui mène la conférence, et pourquoi</summary>' + V.confExplain(A, st) + '</details>';
+  }
+
   V.conferenceCrew = function (A) {
-    const s = A.s, me = s.me, name = S.name(me);
-    const itv = S.currentInterview(s, me);
-    const mode = modeNow(A);
-    const aiOn = A.aiReady();
-    // Pas encore commencé
-    if (!itv) {
-      const facts = factsList(A, me);
-      let body = '<section class="section" style="margin-top:24px"><div class="panel soft"><h3>Ce que l’assistant sait déjà de votre semaine</h3>' + (facts.length ? '<ul class="facts">' + facts.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<p class="muted">Pas encore de données cette semaine.</p>') + '<p class="note" style="margin-top:10px">Ces informations viennent de vos points du soir, de vos mesures et de la pharmacie. Vous pouvez les corriger pendant l’entretien.</p></div></section>';
-      body += '<section class="section"><div class="toggles">' +
-        (A.speech.canSpeak ? '<label class="toggle"><input type="checkbox" data-change="voice-read"' + (A.set.voice.read ? ' checked' : '') + '><span>Lire les questions à voix haute</span></label>' : '') +
-        '</div><p class="small muted" style="margin:12px 0 16px">' + (aiOn ? 'L’entretien est mené par l’IA (' + esc(A.aiLabel()) + '), à partir de la liste de questions habituelle et de votre semaine.' : 'Sans IA connectée, AURA pose les questions habituelles, préparées à partir de votre semaine (<a href="#/reglages">connecter une IA</a>).') + (A.speech.canListen ? ' Vous pouvez répondre à la voix.' : '') + '</p>' +
-        '<button class="btn primary lg" data-act="itv-start">Commencer l’entretien</button></section>';
-      body += H.section('Comment se passe la conférence vers Mars', 'Sur l’ISS, chaque astronaute a un entretien médical privé de 15 minutes chaque semaine. Vers Mars, le délai change le rôle de chacun.', modesTable(A) + UI.sources(['nasaPmc']));
-      return H.page({ title: 'Votre entretien de la semaine', calm: true, state: H.state('normal', 'Une conversation d’environ cinq minutes, à la voix ou par écrit.', 'Vous relisez le résumé et vous choisissez ce qui part vers le médecin au sol. ' + esc(mode.label) + ' : l’assistant ' + esc(lower(mode.ai)) + '.'), body });
+    const s = A.s, me = s.me;
+    const st = S.conferenceStatus(s, me);
+    const rec = st.rec;
+    const itv = rec && rec.mode !== 'direct' ? rec : null;
+    const byDoctor = itv && itv.mode === 'differe';
+    // Interrompue par un signe d’alarme
+    if (itv && itv.status === 'interrompu') {
+      const body = '<div class="callout urgent" style="margin-top:20px"><p><b>La conférence s’est arrêtée : un signe d’alarme a été repéré (' + esc(itv.flags.join(', ').toLowerCase()) + ').</b></p><p>La médecin de bord est prévenue et le message prioritaire est parti vers la Terre. Suivez les premiers gestes.</p><div class="btn-row" style="margin-top:10px"><a class="btn danger" href="#/urgence">Ouvrir la procédure</a></div></div>';
+      return H.page({ title: 'Conférence de la semaine', calm: true, body });
     }
-    // Interrompu par un signe d’alarme
-    if (itv.status === 'interrompu') {
-      const body = '<div class="callout urgent" style="margin-top:20px"><p><b>L’entretien s’est arrêté : un signe d’alarme a été repéré (' + esc(itv.flags.join(', ').toLowerCase()) + ').</b></p><p>La médecin de bord est prévenue et le message prioritaire est parti vers la Terre. Suivez les premiers gestes.</p><div class="btn-row" style="margin-top:10px"><a class="btn danger" href="#/urgence">Ouvrir la procédure</a></div></div>';
-      return H.page({ title: 'Entretien de la semaine', calm: true, body });
-    }
-    // En cours
-    if (itv.status === 'en cours') {
-      const total = itv.plan.length + 1;
-      const pos = Math.min(total, itv.step + 1);
-      let chat = '<div class="chat" id="itv-chat">';
-      itv.answers.forEach(an => {
-        chat += '<div class="msg ai"><div class="who">' + UI.orb('normal', { sm: true, live: false }) + '<span>' + esc(an.label) + '</span></div><div class="body"><p>' + esc(an.q) + '</p></div></div>';
-        chat += '<div class="msg user">' + (an.skipped ? '<span class="muted">Question passée</span>' : esc(an.text)) + '</div>';
-      });
+    // En cours : la visioconférence avec AURA, une question à la fois
+    if (itv && itv.status === 'en cours') {
+      S.syncQuestions(s, itv);
       const cur = itv.current;
       const busy = A.busy.itv;
-      chat += '<div class="msg ai" id="itv-current"><div class="who">' + UI.orb('normal', { sm: true, live: !!busy }) + '<span>' + esc(cur && cur.follow ? 'Une précision' : (itv.plan[itv.step] ? itv.plan[itv.step].label : 'Pour finir')) + (itv.ai ? ', avec ' + esc(itv.ai) : '') + '</span></div><div class="body" id="itv-q" aria-live="polite">' + (cur && cur.q ? '<p>' + esc(cur.q) + '</p>' : '<span class="typing" aria-label="Question en préparation"><i></i><i></i><i></i></span>') + '</div>' +
-        (cur && cur.q && A.speech.canSpeak ? '<div class="btn-row" style="margin-top:6px"><button class="btn sm quiet" data-act="speak-q">Écouter la question</button></div>' : '') + '</div>';
-      chat += '</div>';
-      let form = '<form data-form="itv-answer" class="composer" style="position:static;background:none;padding-top:20px"><div class="field" style="margin-bottom:10px"><label for="itv-a" class="visually-hidden">Votre réponse</label><textarea id="itv-a" name="text" placeholder="' + (A.speech.canListen ? 'Répondez ici, ou appuyez sur le micro' : 'Répondez ici') + '"' + (busy ? ' disabled' : '') + '>' + esc(A.flow.itvDraft || '') + '</textarea></div>' +
+      const label = cur && cur.follow ? 'une précision' : (itv.plan[itv.step] ? lower(itv.plan[itv.step].label) : 'pour finir');
+      const state = busy ? 'thinking' : A.speech.listening === 'itv-a' ? 'listening' : '';
+      let call = '<div class="call" id="call"><div class="call-top"><span class="call-live"><i></i>Visioconférence de la semaine</span><span class="call-timer" id="call-timer">00:00 / ' + D.conference.minutes + ':00</span></div>';
+      call += '<div class="call-stage">' + V.buddy({ state }) + '<div class="call-who">' + (byDoctor ? 'Les questions du médecin au sol' : 'AURA, l’IA du vaisseau' + (itv.ai ? ', avec ' + esc(itv.ai) : '')) + ', ' + esc(label) + '</div>' +
+        '<div class="call-caption" id="itv-q" aria-live="polite">' + (cur && cur.q ? '<p>' + esc(cur.q) + '</p>' : '<span class="typing" aria-label="Question en préparation"><i></i><i></i><i></i></span>') + '</div></div>';
+      call += '<ol class="call-topics" aria-label="Les six sujets">' + itv.plan.map((p, i) => '<li class="' + (i < itv.step ? 'done' : i === itv.step ? 'current' : '') + '">' + esc(p.label) + '</li>').join('') + '</ol>';
+      if (A.flow.cam) call += '<div class="call-self"><video id="cam" autoplay muted playsinline></video></div>';
+      call += '</div>';
+      let form = '<form data-form="itv-answer" class="composer call-controls" style="position:static;background:none;padding-top:4px"><div class="field" style="margin-bottom:10px"><label for="itv-a" class="visually-hidden">Votre réponse</label><textarea id="itv-a" name="text" placeholder="' + (A.speech.canListen ? 'Répondez ici, ou appuyez sur « Répondre à la voix »' : 'Répondez ici') + '"' + (busy ? ' disabled' : '') + '>' + esc(A.flow.itvDraft || '') + '</textarea></div>' +
         '<div class="btn-row">' + (A.speech.canListen ? '<button type="button" class="btn" data-act="listen" data-target="itv-a" aria-pressed="' + (A.speech.listening === 'itv-a') + '">' + (A.speech.listening === 'itv-a' ? 'Arrêter la dictée' : 'Répondre à la voix') + '</button>' : '') +
-        '<button class="btn primary" type="submit"' + (busy || !(cur && cur.q) ? ' disabled' : '') + '>Envoyer la réponse</button><button type="button" class="btn quiet" data-act="itv-skip"' + (busy ? ' disabled' : '') + '>Passer cette question</button><button type="button" class="btn quiet" data-act="itv-finish"' + (busy ? ' disabled' : '') + '>Terminer maintenant</button></div>' +
-        '<p class="note" style="margin-top:12px">Vous pouvez passer une question. Rien ne part vers la Terre sans votre accord.' + (A.speech.canListen ? ' La dictée du navigateur peut se tromper : relisez avant d’envoyer.' : '') + '</p></form>';
+        '<button class="btn primary" type="submit"' + (busy || !(cur && cur.q) ? ' disabled' : '') + '>Envoyer la réponse</button><button type="button" class="btn quiet" data-act="itv-skip"' + (busy ? ' disabled' : '') + '>Passer</button>' +
+        (cur && cur.q && A.speech.canSpeak ? '<button type="button" class="btn quiet" data-act="speak-q">Réécouter</button>' : '') + '<button type="button" class="btn quiet" data-act="cam">' + (A.flow.cam ? 'Couper ma caméra' : 'Ma caméra') + '</button><button type="button" class="btn quiet" data-act="itv-finish"' + (busy ? ' disabled' : '') + '>Raccrocher</button></div>' +
+        (A.speech.canSpeak ? '<div class="toggles" style="margin-top:12px"><label class="toggle"><input type="checkbox" data-change="voice-read"' + (A.set.voice.read ? ' checked' : '') + '><span>AURA parle à voix haute</span></label></div>' : '') +
+        '<p class="note" style="margin-top:12px">Vous pouvez passer un sujet. Rien ne part vers la Terre sans votre accord, et votre image n’est ni enregistrée ni envoyée.' + (A.speech.canListen ? ' La dictée peut se tromper : relisez avant d’envoyer.' : '') + '</p></form>';
       if (A.flow.itvError) form = '<div class="callout attention" style="margin-top:14px"><p>' + esc(A.flow.itvError) + '</p><div class="btn-row" style="margin-top:8px"><button class="btn sm" data-act="itv-retry">Réessayer</button><button class="btn sm quiet" data-act="itv-norules">Continuer sans IA</button></div></div>' + form;
-      return H.page({ title: 'Entretien de la semaine', calm: true, lead: 'Question ' + pos + ' sur ' + total + ', à votre rythme.', body: chat + form });
+      const tr = itv.answers.length ? '<details class="disclose"><summary>Transcription</summary><ul class="qa">' + itv.answers.map(an => '<li><span class="lab">' + esc(an.label) + '</span><div class="q">' + esc(an.q) + '</div><div class="a">' + (an.skipped ? '<span class="muted">Passé</span>' : esc(an.text)) + '</div></li>').join('') + '</ul></details>' : '';
+      return H.page({ title: 'Conférence de la semaine', calm: true, lead: 'Sujet ' + Math.min(itv.plan.length, itv.step + 1) + ' sur ' + itv.plan.length + ', environ un quart d’heure en tout, à votre rythme.', body: call + form + tr });
     }
-    // Terminé : relecture et accord
-    if (itv.status === 'terminé') {
+    // Terminée : relecture et accord
+    if (itv && itv.status === 'terminé') {
       const sum = itv.summary || { med: '', psy: '' };
       const busy = A.busy.itvSum;
       let body = '<form data-form="itv-send" style="margin-top:20px">';
-      body += V.origin({ ai: itv.summaryAi || null });
-      body += '<div class="panel"><h3>Partie médicale</h3><textarea name="med" class="ai-edit" id="itv-med" aria-label="Partie médicale du résumé"' + (busy ? ' disabled' : '') + '>' + esc(sum.med) + '</textarea>' +
-        '<div class="toggles" style="margin-top:12px"><label class="toggle"><input type="checkbox" name="cmed" checked><span>Envoyer la partie médicale au médecin au sol</span></label></div></div>';
-      body += '<div class="panel" style="margin-top:14px"><h3>Partie psychologique, confidentielle</h3>' + (sum.psy ? '<textarea name="psy" class="ai-edit" style="min-height:140px" aria-label="Partie psychologique du résumé"' + (busy ? ' disabled' : '') + '>' + esc(sum.psy) + '</textarea>' : '<p class="muted">Non abordée cette semaine.</p><input type="hidden" name="psy" value="">') +
+      body += byDoctor ? '' : V.origin({ ai: itv.summaryAi || null });
+      body += '<div class="panel"><h3>' + (byDoctor ? 'Vos réponses' : 'Partie médicale') + '</h3><textarea name="med" class="ai-edit" id="itv-med" aria-label="' + (byDoctor ? 'Vos réponses au médecin au sol' : 'Partie médicale du résumé') + '"' + (busy ? ' disabled' : '') + '>' + esc(sum.med) + '</textarea>' +
+        '<div class="toggles" style="margin-top:12px"><label class="toggle"><input type="checkbox" name="cmed" checked><span>' + (byDoctor ? 'Envoyer mes réponses au médecin au sol' : 'Envoyer la partie médicale au médecin au sol') + '</span></label></div></div>';
+      body += '<div class="panel" style="margin-top:14px"><h3>Partie psychologique, confidentielle</h3>' + (sum.psy ? '<textarea name="psy" class="ai-edit" style="min-height:140px" aria-label="Partie psychologique"' + (busy ? ' disabled' : '') + '>' + esc(sum.psy) + '</textarea>' : '<p class="muted">Non abordée cette semaine.</p><input type="hidden" name="psy" value="">') +
         (sum.psy ? '<div class="toggles" style="margin-top:12px"><label class="toggle"><input type="checkbox" name="cpsy"><span>La partager aussi avec le médecin au sol</span></label></div><p class="note" style="margin-top:8px">Sans votre accord, elle reste à bord et vous seul la voyez.</p>' : '') + '</div>';
       body += '<div class="btn-row" style="margin-top:18px"><button class="btn primary lg" type="submit"' + (busy ? ' disabled' : '') + '>Envoyer</button><button class="btn quiet" type="button" data-act="itv-keep">Garder à bord</button></div></form>';
-      return H.page({ title: 'Votre résumé', calm: true, state: H.state('normal', 'Relisez le résumé, modifiez-le si besoin.', 'Vous décidez de ce qui part vers le médecin au sol.'), body });
+      return H.page({ title: byDoctor ? 'Vos réponses au médecin' : 'Votre résumé', calm: true, state: H.state('normal', 'Relisez, modifiez si besoin.', 'Vous décidez de ce qui part vers le médecin au sol' + (st.delay ? ', qui le recevra ' + esc(f.delay(st.delay)) + ' après l’envoi.' : '.')), body });
     }
-    // Envoyé ou gardé à bord
-    const sentItem = itv.sentId ? s.queue.find(q => q.id === itv.sentId) : null;
-    const reply = sentItem ? s.inbox.find(m => m.ref === sentItem.id && m.status === 'reçu') : null;
-    let txt, sub;
-    if (itv.status === 'envoyé') {
-      txt = sentItem && sentItem.status === 'reçu' ? 'Votre résumé est arrivé au sol.' : 'Votre résumé est en route vers la Terre.';
-      sub = 'Parti ' + esc(H.ago(A, itv.tSent)) + (sentItem && sentItem.arrAt ? ', arrivée ' + (sentItem.arrAt <= s.now ? 'à ' : 'prévue à ') + esc(f.clock(sentItem.arrAt % DAY)) : ', il partira au retour de la liaison') + '. ' + (itv.consent.psy ? 'Partie psychologique comprise, avec votre accord.' : 'La partie psychologique reste à bord.');
-    } else { txt = 'Votre résumé reste à bord.'; sub = 'Rien n’est parti vers la Terre. Vous pouvez en parler à la médecin de bord quand vous voulez.'; }
-    let body = '';
-    if (reply) body += '<section class="section" style="margin-top:24px"><div class="panel"><div class="row"><b>' + esc(reply.from) + '</b><span class="row-meta">reçu ' + esc(H.ago(A, reply.arrAt)) + '</span></div><p style="margin-top:8px">' + esc(reply.text) + '</p></div></section>';
-    else if (itv.status === 'envoyé') body += '<p class="note" style="margin-top:20px">La réponse du médecin au sol arrivera ici et sur votre page Aujourd’hui.</p>';
-    body += '<details class="disclose"><summary>Revoir votre résumé</summary><div class="prose"><p style="white-space:pre-wrap">' + esc(itv.summary ? itv.summary.med : '') + '</p>' + (itv.summary && itv.summary.psy ? '<p class="muted" style="white-space:pre-wrap">' + esc(itv.summary.psy) + '</p>' : '') + '</div></details>';
-    body += '<div class="btn-row" style="margin-top:20px"><a class="btn" href="#/">Revenir à Aujourd’hui</a></div>';
-    return H.page({ title: 'Entretien de la semaine', calm: true, state: H.state('normal', txt, sub), body });
+    // Faite (envoyée, gardée à bord, ou visioconférence faite)
+    if (rec && st.done) {
+      let txt, sub, body = '';
+      if (rec.mode === 'direct') {
+        txt = 'Votre visioconférence de la semaine est faite, avec le médecin au sol.';
+        sub = 'Faite ' + esc(H.ago(A, rec.tDone || rec.t)) + '.';
+        if (st.notes || rec.doctorNotes) body += '<section class="section" style="margin-top:24px"><div class="panel"><div class="row"><b>Compte rendu du médecin au sol</b>' + (st.notes ? '<span class="row-meta">reçu ' + esc(H.ago(A, st.notes.arrAt)) + '</span>' : '') + '</div><p style="margin-top:8px;white-space:pre-wrap">' + esc(st.notes ? st.notes.text : rec.doctorNotes) + '</p></div></section>';
+        else body += '<p class="note" style="margin-top:20px">Le compte rendu du médecin au sol arrivera ici.</p>';
+      } else if (rec.status === 'envoyé') {
+        const si = st.sentItem;
+        txt = byDoctor ? (si && si.status === 'reçu' ? 'Vos réponses sont arrivées au médecin au sol.' : 'Vos réponses sont en route vers le médecin au sol.') : (si && si.status === 'reçu' ? 'Votre résumé est arrivé au médecin au sol.' : 'Votre résumé est en route vers la Terre.');
+        sub = 'Parti ' + esc(H.ago(A, rec.tSent)) + (si && si.arrAt ? ', arrivée ' + (si.arrAt <= s.now ? 'à ' : 'prévue à ') + esc(f.clock(si.arrAt % DAY)) : ', il partira au retour de la liaison') + '. ' + (rec.consent.psy ? 'Partie psychologique comprise, avec votre accord.' : 'La partie psychologique reste à bord.');
+        if (st.reply) body += '<section class="section" style="margin-top:24px"><div class="panel"><div class="row"><div class="btn-row">' + UI.avatar('Médecin au sol', { doc: true, text: 'MS' }) + '<b>' + esc(st.reply.from) + '</b></div><span class="row-meta">reçu ' + esc(H.ago(A, st.reply.arrAt)) + '</span></div><p style="margin-top:10px;white-space:pre-wrap">' + esc(st.reply.text) + '</p></div></section>';
+        else body += '<p class="note" style="margin-top:20px">La réponse du médecin au sol arrivera ici et sur votre page Aujourd’hui.</p>';
+        body += '<details class="disclose"><summary>' + (byDoctor ? 'Revoir vos réponses' : 'Revoir votre résumé') + '</summary><div class="prose"><p style="white-space:pre-wrap">' + esc(rec.summary ? rec.summary.med : '') + '</p>' + (rec.summary && rec.summary.psy && rec.consent.psy ? '<p class="muted" style="white-space:pre-wrap">' + esc(rec.summary.psy) + '</p>' : '') + '</div></details>';
+      } else {
+        txt = 'Votre conférence de la semaine est faite, et tout reste à bord.';
+        sub = 'Rien n’est parti vers la Terre. Vous pouvez en parler à la médecin de bord quand vous voulez.';
+      }
+      body += confTail(A, st);
+      return H.page({ title: 'Conférence de la semaine', calm: true, state: H.state('normal', txt, sub), body });
+    }
+    // Visioconférence en direct avec le médecin au sol
+    if (st.mode === 'direct' && A.flow.call === 'live') {
+      let call = '<div class="call" id="call"><div class="call-top"><span class="call-live"><i></i>Visioconférence avec le médecin au sol</span><span class="call-timer" id="call-timer">00:00 / ' + D.conference.minutes + ':00</span></div>' +
+        '<div class="call-doctor"><div class="face" aria-hidden="true">MS</div><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="call-who">Médecin au sol, délai de ' + esc(f.delay(st.delay)) + '</div></div>';
+      if (A.flow.cam) call += '<div class="call-self"><video id="cam" autoplay muted playsinline></video></div>';
+      call += '<p class="call-note">Démonstration : l’image et le son passent par le système de communication du vaisseau. AURA garde l’ordre du jour et vos notes.</p></div>';
+      let body = call;
+      body += H.section('Ordre du jour', 'Cochez au fil de la conversation, pour vous.', '<ul class="agenda">' + D.interview.base.map(p => '<li><label><input type="checkbox"><span>' + esc(p.label) + '</span></label></li>').join('') + '</ul>');
+      body += '<form data-form="conf-live-end" class="section"><div class="field"><label for="conf-notes">Vos notes <span class="opt">facultatif</span></label><textarea id="conf-notes" name="notes" placeholder="Ce que vous voulez retenir."></textarea></div><div class="btn-row"><button class="btn primary" type="submit">Terminer la visioconférence</button><button type="button" class="btn quiet" data-act="cam">' + (A.flow.cam ? 'Couper ma caméra' : 'Ma caméra') + '</button><button type="button" class="btn quiet" data-act="conf-live-ia">Le médecin ne répond pas : la faire avec AURA</button></div></form>';
+      return H.page({ title: 'Conférence de la semaine', calm: true, lead: 'Un quart d’heure, six sujets, à votre rythme.', body });
+    }
+    // À faire : qui la mène cette semaine, et comment
+    const intro = confIntro(A, st);
+    const body = confStart(A, st) + confTail(A, st);
+    return H.page({ title: 'Conférence de la semaine', calm: true, state: H.state('normal', intro.text, esc(intro.sub)), body });
   };
 })(typeof self !== 'undefined' ? self : this);

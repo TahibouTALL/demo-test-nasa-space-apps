@@ -571,34 +571,67 @@
   ];
 
   /* ------------------------------------------------------------------ */
-  /* Conférence médicale de la semaine (F7)                               */
-  /* Sur l’ISS : 15 minutes par semaine avec le médecin de vol. Vers Mars, */
-  /* l’assistant mène l’entretien et le médecin au sol lit le résumé.      */
+  /* Questions de la conférence médicale de la semaine (F7)               */
+  /* Sur l’ISS : 15 minutes par semaine avec le médecin de vol. Les mêmes  */
+  /* questions servent au médecin au sol et à l’IA du vaisseau.            */
   /* ------------------------------------------------------------------ */
   const interview = {
     // Chaque semaine
+    // Six sujets, dans l’ordre de la visioconférence (environ 15 minutes)
     base: [
+      { id: 'alimentation', part: 'med', label: 'Alimentation', q: 'Commençons par les repas : comment vont l’appétit et l’envie de boire ?' },
       { id: 'sommeil', part: 'med', label: 'Sommeil', q: 'Comment avez-vous dormi cette semaine ?' },
-      { id: 'alimentation', part: 'med', label: 'Alimentation', q: 'Comment se passent vos repas : appétit, envie de boire ?' },
       { id: 'sport', part: 'med', label: 'Exercice', q: 'Avez-vous pu faire vos séances d’exercice comme prévu ?' },
-      { id: 'elimination', part: 'med', label: 'Digestion', q: 'Côté digestion et urines, avez-vous remarqué quelque chose d’inhabituel ?' },
+      { id: 'elimination', part: 'med', label: 'Élimination', q: 'Côté digestion et urines, avez-vous remarqué quelque chose d’inhabituel ?' },
       { id: 'charge', part: 'med', label: 'Charge de travail', q: 'Comment avez-vous vécu la charge de travail cette semaine ?' },
-      { id: 'gene', part: 'med', label: 'Douleur ou gêne', q: 'Avez-vous une douleur ou une gêne dont vous aimeriez parler ?' }
+      { id: 'bienetre', part: 'psy', label: 'Bien-être', q: 'Et vous, comment vous sentez-vous en ce moment : le moral, la fatigue, l’ambiance à bord ?' }
     ],
-    // Une semaine sur deux, comme les entretiens psychologiques de l’ISS
-    psy: [
-      { id: 'moral', part: 'psy', label: 'Moral', q: 'Comment va le moral en ce moment ?' },
-      { id: 'equipage', part: 'psy', label: 'Relations à bord', q: 'Comment se passent les relations dans l’équipage ?' },
-      { id: 'proches', part: 'psy', label: 'Proches et Terre', q: 'Avez-vous pu échanger avec vos proches ? Comment le vivez-vous ?' }
+    psy: [],
+    closing: 'Merci. Voulez-vous ajouter quelque chose pour le médecin au sol ?'
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Conférence médicale de la semaine (F7)                               */
+  /* Chaque membre d’équipage a un rendez-vous par semaine, comme sur     */
+  /* l’ISS. Le médecin au sol le mène tant qu’une conversation est        */
+  /* possible ; sinon, l’IA du vaisseau le mène et lui envoie le résumé.  */
+  /* ------------------------------------------------------------------ */
+  const conference = {
+    hour: 18 * 60,           // heure du rendez-vous, heure de bord
+    minutes: 15,             // durée de la visioconférence
+    liveMax: 10 / 60,        // visioconférence avec le médecin tant que le délai ne dépasse pas 10 secondes
+    delayedMax: 0,           // pas de mode en différé : au-delà, c’est l’IA qui mène la visioconférence
+    questionsLead: 28 * 60,  // le médecin envoie ses questions la veille du rendez-vous
+    // Jour du rendez-vous dans la semaine de mission (0 à 6)
+    slots: { a1: 0, a2: 2, a3: 4, a4: 5 },
+    modes: {
+      direct: { label: 'En visioconférence avec le médecin au sol', short: 'Avec le médecin', doctor: true },
+      differe: { label: 'Avec le médecin au sol, en différé', short: 'En différé', doctor: true },
+      ia: { label: 'En visioconférence avec AURA, l’IA du vaisseau', short: 'Avec l’IA', doctor: false }
+    },
+    reasons: {
+      coupure: 'la liaison est coupée par la conjonction solaire',
+      delai: 'le délai est trop long pour se parler en direct',
+      indisponible: 'le médecin au sol n’est pas disponible',
+      visio: 'la visioconférence n’a pas pu avoir lieu'
+    },
+    // Qui mène la conférence, selon la liaison (tableau affiché dans la plateforme)
+    rules: [
+      { id: 'direct', label: 'Délai de quelques secondes (près de la Terre)', doctor: 'Mène la visioconférence de 15 minutes', ai: 'Prépare l’ordre du jour et garde le compte rendu' },
+      { id: 'ia', label: 'Délai de plus de 10 secondes (jusqu’à 24 minutes)', doctor: 'Lit le résumé et répond en différé', ai: 'Mène la visioconférence et alerte si urgence' },
+      { id: 'coupure', label: 'Coupure (conjonction solaire)', doctor: 'Suspendu, reprend avec tout l’historique', ai: 'Mène la visioconférence, tout est gardé' },
+      { id: 'indisponible', label: 'Médecin au sol indisponible', doctor: 'Le signale, puis lit le résumé', ai: 'Mène la visioconférence à sa place' }
     ],
-    closing: 'Merci. Voulez-vous ajouter quelque chose pour le médecin au sol ?',
-    // Modes de communication avec le médecin au sol (document de l’équipe)
-    modes: [
-      { id: 'direct', maxDelay: 0.1, label: 'Près de la Terre', doctor: 'Rendez-vous en direct chaque semaine', ai: 'Prépare et résume' },
-      { id: 'minutes', maxDelay: 10, label: 'Délai de quelques minutes', doctor: 'Répond par messages vidéo', ai: 'Mène la conversation' },
-      { id: 'differe', maxDelay: 99, label: 'Délai long (jusqu’à 24 minutes)', doctor: 'Répond en différé', ai: 'Mène la conversation et alerte si urgence' },
-      { id: 'coupure', maxDelay: null, label: 'Coupure (conjonction solaire)', doctor: 'Suspendu, reprend avec tout l’historique', ai: 'Seul interlocuteur, tout est gardé' }
-    ]
+    // Réponses simulées pour l’historique de la démonstration
+    simulated: {
+      alimentation: 'Appétit normal, je bois bien.',
+      sport: 'Oui, mes séances sont faites.',
+      elimination: 'Rien de particulier.',
+      equipage: 'Bonne ambiance à bord.',
+      proches: 'Oui, un appel cette semaine, ça fait du bien.',
+      bienetre: 'Ça va, plutôt bien.',
+      fin: 'Rien de plus, merci.'
+    }
   };
 
   /* ------------------------------------------------------------------ */
@@ -641,19 +674,30 @@
       steps: [{ role: 'crew', me: 'a2', route: '#/urgence', look: 'Le bandeau rouge sur toutes les pages, la procédure pas à pas et l’heure d’arrivée du message au sol.' }]
     },
     {
-      id: 's5', title: 'La conférence de la semaine avec l’IA', features: 'F7, F9, F11, F12',
-      shows: 'Keiko Tanaka fait son entretien de la semaine, à la voix ou par écrit. L’assistant connaît déjà sa semaine, pose les questions habituelles et prépare un résumé. Elle choisit ce qui part vers la Terre.',
+      id: 's5', title: 'La visioconférence de la semaine avec le médecin au sol', features: 'F7, F11, F12',
+      shows: 'Chaque semaine, chaque membre d’équipage a sa visioconférence médicale de 15 minutes : alimentation, sommeil, exercice, élimination, charge de travail et bien-être. À J+9, près de la Terre, le délai n’est que de quelques secondes : c’est le médecin au sol qui la mène.',
       steps: [
-        { role: 'crew', me: 'a3', route: '#/conference', look: 'La première question : l’assistant a vu que ses nuits sont plus courtes. Répondez, à la voix ou au clavier.' },
-        { role: 'doctor', route: '#/conference', look: 'La synthèse de la semaine pour le médecin au sol, rédigée par l’IA si elle est connectée, et l’état des entretiens.' },
-        { role: 'ground', route: '#/', advance: 30, look: 'Au sol, chaque information affiche son âge. Le médecin lit le résumé et renvoie un plan de soin.' },
-        { role: 'crew', me: 'a3', route: '#/', advance: 30, look: 'La réponse du médecin au sol arrive à bord, avec le délai du moment.' }
+        { role: 'crew', me: 'a2', route: '#/conference', look: 'Lucas note ce qu’il veut aborder, puis rejoint la visioconférence : l’ordre du jour, le minuteur de 15 minutes et ses notes.' },
+        { role: 'ground', route: '#/conferences', look: 'Au sol, le médecin voit les quatre visioconférences de la semaine. Après celle de Lucas, il écrit son compte rendu.' },
+        { role: 'crew', me: 'a2', route: '#/conference', advance: 5, look: 'Le compte rendu du médecin arrive à bord, dans la conférence de Lucas.' }
+      ]
+    },
+    {
+      id: 's9', title: 'Quand le médecin ne peut pas : la visioconférence avec AURA', features: 'F7, F9, F11',
+      shows: 'À J+58, le délai est de 3 minutes : impossible de se parler en direct. AURA, l’IA du vaisseau, mène la visioconférence de Keiko Tanaka. Elle connaît déjà sa semaine, parle, écoute, et prépare un résumé que Keiko relit.',
+      steps: [
+        { role: 'crew', me: 'a3', route: '#/conference', look: 'AURA apparaît à l’écran : elle parle, écoute et réagit. Répondez à la voix ou au clavier ; chaque réponse est vérifiée pour les signes d’alarme.' },
+        { role: 'doctor', route: '#/conference', look: 'La médecin de bord voit qui a fait sa visioconférence de la semaine, et avec qui. Le contenu reste privé.' },
+        { role: 'ground', route: '#/conferences', advance: 30, look: 'Au sol, le résumé relu par Keiko arrive avec le délai. Le médecin le lit et répond.' }
       ]
     },
     {
       id: 's6', title: 'Conjonction solaire : deux semaines sans la Terre', features: 'F11, F13',
       shows: 'À J+446, le Soleil coupe la liaison. AURA continue de tout calculer à bord et garde les messages en file jusqu’au retour du signal.',
-      steps: [{ role: 'crew', me: 'a2', route: '#/liaison', look: 'La file bloquée, puis vidée par ordre de priorité quand vous avancez jusqu’à la fin de la conjonction.' }]
+      steps: [
+        { role: 'crew', me: 'a2', route: '#/liaison', look: 'La file bloquée, puis vidée par ordre de priorité quand vous avancez jusqu’à la fin de la conjonction.' },
+        { role: 'crew', me: 'a2', route: '#/conference', look: 'Pendant la coupure, la visioconférence de la semaine se fait avec AURA : le résumé relu attend dans la file et partira au retour du signal.' }
+      ]
     },
     {
       id: 's7', title: 'Un signe d’alarme passe avant tout', features: 'F5, F8',
@@ -677,6 +721,6 @@
 
   return {
     SOURCES, mission, metrics, contextLabels, measureActions, habitat, crew, meds,
-    conditions, planningScenarios, symptoms, protocols, redFlags, interview, wellbeingHelp, scenarios, realData
+    conditions, planningScenarios, symptoms, protocols, redFlags, interview, conference, wellbeingHelp, scenarios, realData
   };
 });

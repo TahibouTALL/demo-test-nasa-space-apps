@@ -24,7 +24,7 @@
   }
   function avatar(name, opts) {
     opts = opts || {};
-    return '<span class="avatar' + (opts.lg ? ' lg' : '') + (opts.doc ? ' doc' : '') + '" aria-hidden="true">' + esc(opts.text || initials(name)) + '</span>';
+    return '<span class="avatar' + (opts.lg ? ' lg' : '') + (opts.xs ? ' xs' : '') + (opts.doc ? ' doc' : '') + '" aria-hidden="true">' + esc(opts.text || initials(name)) + '</span>';
   }
   function src(id) {
     const s = D.SOURCES[id];

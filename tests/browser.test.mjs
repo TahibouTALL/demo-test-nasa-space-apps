@@ -120,12 +120,14 @@ console.log('Signe d’alarme dans l’assistant');
 }
 
 /* ------------------------------------------------------------------ */
-console.log('Entretien de la semaine, sans IA');
+console.log('Visioconférence de la semaine avec AURA, sans IA');
 {
   const { ctx, page } = await open();
   await pick(page, '[data-act="profile"][data-me="a2"]');
   await go(page, '#/conference');
   await pick(page, '[data-act="itv-start"]');
+  ok(await page.$('#call #buddy') !== null, 'écran de visioconférence avec AURA');
+  ok((await page.$$('.call-topics li')).length === 6, 'six sujets affichés');
   let n = 0;
   while (n < 20 && await page.$('#itv-a')) {
     await page.fill('#itv-a', 'Ça va, rien de particulier.');
@@ -134,7 +136,7 @@ console.log('Entretien de la semaine, sans IA');
   }
   ok(n >= 6, n + ' questions posées une à une');
   const med = await page.$eval('#itv-med', el => el.value).catch(() => '');
-  ok(med.includes('Entretien de Lucas Moreau'), 'résumé préparé à bord, modifiable');
+  ok(med.includes('Conférence de Lucas Moreau'), 'résumé préparé à bord, modifiable');
   await shot(page, '05-entretien-resume');
   await pick(page, 'form[data-form="itv-send"] button[type="submit"]');
   const t = await main(page);
@@ -144,6 +146,20 @@ console.log('Entretien de la semaine, sans IA');
 }
 
 /* ------------------------------------------------------------------ */
+console.log('Visioconférence avec le médecin au sol, près de la Terre');
+{
+  const { ctx, page } = await open();
+  await pick(page, '[data-act="profile"][data-me="a2"]');
+  await page.evaluate(() => { const A = window.AURA_APP; A.s = window.AURA_STORE.createState({ day: 9, minute: 9 * 60 }); A.s.role = 'crew'; A.s.me = 'a2'; location.hash = '#/conference'; });
+  await page.waitForTimeout(300);
+  ok((await main(page)).includes('avec le médecin au sol'), 'le médecin mène la visioconférence');
+  await pick(page, '[data-act="conf-join"]');
+  ok(await page.$('#call .call-doctor') !== null, 'écran d’appel avec le médecin');
+  await pick(page, 'form[data-form="conf-live-end"] button[type="submit"]');
+  ok((await main(page)).includes('est faite'), 'visioconférence notée comme faite');
+  await ctx.close();
+}
+
 console.log('Écrire au médecin au sol');
 {
   const { ctx, page } = await open();

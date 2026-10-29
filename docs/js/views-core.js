@@ -58,7 +58,7 @@
     earthLine(A) {
       const day = A.s.now / DAY, L = E.lightMinutes(D.mission, day);
       if (E.isBlackout(D.mission, day)) return 'La liaison avec la Terre est coupée jusqu’à ' + f.day(D.mission.conjunction.end) + ' ; tout continue à bord.';
-      return 'La Terre reçoit vos messages en ' + f.dur(Math.round(L)) + '.';
+      return 'La Terre reçoit vos messages en ' + f.delay(L) + '.';
     },
     // Coquille de page
     page(o) {
@@ -222,9 +222,111 @@
     });
     h += '</div>';
     h += '<div class="person-foot">' + (wb.an.n7 ? 'Sommeil ' + esc(f.hours(wb.an.sleep7)) + ', moral ' + esc(f.num(wb.an.mood7, 1)) + ' sur 5' : 'Pas de point du soir cette semaine') + (wb.rt.last ? ', réaction ' + esc(f.num(wb.rt.last.median, 0)) + NB + 'ms' : '') + '</div>';
+    const cst = S.conferenceStatus(A.s, c.id);
+    h += '<div class="person-foot" style="margin-top:4px">Conférence : ' + esc(cst.done ? H.lc1(H.confHistoryLine(cst).replace(/\.$/, '')) : (cst.mode === 'ia' ? 'avec l’IA, ' : cst.mode === 'direct' ? 'en direct, ' : 'avec le médecin au sol, ') + (cst.state === 'non faite' ? 'non faite' : H.confWhen(A, cst.t))) + '</div>';
     return h + '</a>';
   }
   V.personPanel = personPanel;
+
+  /* ------------------------------------------------------------------ */
+  /* Conférence médicale de la semaine : libellés communs                 */
+  /* ------------------------------------------------------------------ */
+  const CONF = D.conference;
+  // Qui mène la conférence
+  function confModePill(st) {
+    if (st.mode === 'direct') return UI.pill('normal', 'Avec le médecin au sol');
+    if (st.mode === 'differe') return UI.pill('normal', 'Avec le médecin, en différé');
+    return UI.pill('info', 'Avec AURA');
+  }
+  // Où en est la conférence, vue du vaisseau
+  function confStatePill(st, opts) {
+    opts = opts || {};
+    const map = {
+      'faite': ['normal', 'Faite'], 'prête': ['info', 'À faire cette semaine'], 'en cours': ['info', 'En cours'], 'à venir': ['info', 'À venir'],
+      'questions en route': ['info', 'Questions en route'], 'non faite': [opts.doctor ? 'vigilance' : 'info', 'Non faite'], 'interrompue': ['urgence', 'Interrompue : signe d’alarme']
+    };
+    const m = map[st.state] || ['info', st.state];
+    return UI.pill(m[0], m[1]);
+  }
+  function confReason(st) { return st.reason && CONF.reasons[st.reason] ? CONF.reasons[st.reason] : ''; }
+  // Phrase courte : « J+58 à 18:00 », ou « aujourd’hui à 18:00 »
+  function confWhen(A, t) {
+    const d = Math.floor(t / DAY), today = H.today(A);
+    const clock = f.clock(t % DAY);
+    if (d === today) return 'aujourd’hui à ' + clock;
+    if (d === today + 1) return 'demain à ' + clock;
+    if (d === today - 1) return 'hier à ' + clock;
+    return f.day(d) + ' à ' + clock;
+  }
+  // Ce que fait la conférence de la semaine passée, en une ligne
+  function confHistoryLine(st) {
+    const r = st.rec;
+    if (st.state === 'non faite') return 'Non faite.';
+    if (!r) return 'Pas de conférence enregistrée.';
+    const when = f.day(Math.floor((r.tSent || r.tDone || r.t) / DAY));
+    if (r.mode === 'direct') return 'Faite à ' + when + ' en visioconférence avec le médecin au sol.';
+    if (r.mode === 'differe') return 'Faite à ' + when + ' avec le médecin au sol, en différé' + (r.status === 'gardé à bord' ? ', rien n’a été envoyé.' : '.');
+    return 'Faite à ' + when + ' avec AURA, l’IA du vaisseau' + (r.reason && CONF.reasons[r.reason] ? ' : ' + CONF.reasons[r.reason] : '') + (r.status === 'gardé à bord' ? ', rien n’a été envoyé.' : '.');
+  }
+  Object.assign(H, { confModePill, confStatePill, confReason, confWhen, confHistoryLine });
+
+  // Les périodes de la mission : qui peut mener la conférence
+  function confBand(A) {
+    const W = Math.round(Math.max(320, UI.layoutWidth())), Hh = 112, x = UI.linear(0, D.mission.durationDays, 8, W - 8);
+    const now = A.s.now / DAY;
+    const runs = S.modeTimeline();
+    const LAB = { direct: 'Médecin', differe: 'En différé', ia: 'Avec AURA, l’IA du vaisseau', coupure: 'Coupure' };
+    let s = '<svg class="arch conf-band" viewBox="0 0 ' + W + ' ' + Hh + '" width="' + W + '" height="' + Hh + '" role="img" aria-label="Qui mène la conférence de la semaine au fil de la mission : en direct, en différé avec le médecin au sol, ou avec l’IA du vaisseau">';
+    runs.forEach(r => {
+      const x0 = x(r.start), x1 = x(r.end), w = Math.max(2, x1 - x0);
+      s += '<rect x="' + x0.toFixed(1) + '" y="34" width="' + w.toFixed(1) + '" height="24" rx="5" class="cb-' + r.id + '"/>';
+      if (w > 64) s += '<text x="' + (x0 + w / 2).toFixed(1) + '" y="50" class="t-sub cb-t-' + r.id + '" text-anchor="middle">' + esc(LAB[r.id]) + '</text>';
+    });
+    // Repères de jours
+    [0, 180, 360, 540, 720, 900].forEach(d => { s += '<text x="' + x(d).toFixed(1) + '" y="78" class="t-sub" text-anchor="' + (d === 0 ? 'start' : d === 900 ? 'end' : 'middle') + '">' + esc(f.day(d)) + '</text>'; });
+    s += '<path d="M' + (x(now) - 6).toFixed(1) + ' 21 L' + (x(now) + 6).toFixed(1) + ' 21 L' + x(now).toFixed(1) + ' 30 Z" style="fill:var(--aura);stroke:none"/>';
+    s += '<text x="' + x(now).toFixed(1) + '" y="14" class="t-head" text-anchor="' + (now > 800 ? 'end' : now < 60 ? 'start' : 'middle') + '" style="fill:var(--aura-ink)">' + esc(f.day(now)) + ', aujourd’hui</text>';
+    s += '</svg>';
+    const legend = '<div class="legend"><span><i class="key cb-direct"></i>Avec le médecin au sol</span><span><i class="key cb-ia"></i>Avec AURA, l’IA du vaisseau</span><span><i class="key cb-coupure"></i>Coupure de la liaison</span></div>';
+    return '<div class="chart-wrap">' + legend + s + '</div>';
+  }
+  V.confBand = confBand;
+  // AURA en visioconférence : un petit astre qui parle, écoute et réagit
+  function buddy(o) {
+    o = o || {};
+    const cls = ['buddy'].concat(o.state ? [o.state] : []).join(' ');
+    return '<div class="' + cls + '" id="buddy" role="img" aria-label="AURA, l’IA du vaisseau' + (o.state === 'talking' ? ', parle' : o.state === 'listening' ? ', écoute' : o.state === 'thinking' ? ', réfléchit' : '') + '">' +
+      '<svg viewBox="0 0 220 230" aria-hidden="true">' +
+      '<defs><radialGradient id="bd-body" cx="38%" cy="28%" r="80%"><stop offset="0" stop-color="#8f7cff"/><stop offset=".55" stop-color="#5b49d1"/><stop offset="1" stop-color="#9aa0ee"/></radialGradient>' +
+      '<radialGradient id="bd-tip" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff6c9"/><stop offset="1" stop-color="#ffc864"/></radialGradient></defs>' +
+      '<g class="bd-halo"><circle cx="110" cy="128" r="96"/></g>' +
+      '<g class="bd-ring"><ellipse cx="110" cy="128" rx="104" ry="24"/></g>' +
+      '<g class="bd-float">' +
+        '<g class="bd-antenna"><path d="M110 58 C 108 40, 118 30, 122 22"/><circle cx="123" cy="19" r="8" fill="url(#bd-tip)"/></g>' +
+        '<g class="bd-squash"><circle class="bd-body" cx="110" cy="128" r="72" fill="url(#bd-body)"/>' +
+        '<ellipse class="bd-shine" cx="84" cy="96" rx="20" ry="11"/>' +
+        '<ellipse class="bd-cheek" cx="72" cy="150" rx="11" ry="6"/><ellipse class="bd-cheek" cx="148" cy="150" rx="11" ry="6"/>' +
+        '<g class="bd-eyes" id="buddy-eyes"><g class="bd-eye"><ellipse cx="90" cy="122" rx="10" ry="16"/><circle class="bd-pupil" cx="92" cy="125" r="5.5"/><circle class="bd-glint" cx="95" cy="114" r="3"/></g><g class="bd-eye"><ellipse cx="130" cy="122" rx="10" ry="16"/><circle class="bd-pupil" cx="132" cy="125" r="5.5"/><circle class="bd-glint" cx="135" cy="114" r="3"/></g>' +
+        '<path class="bd-happy" d="M80 124 Q90 112 100 124 M120 124 Q130 112 140 124"/></g>' +
+        '<g class="bd-mouth"><path class="bd-smile" d="M98 152 Q110 162 122 152"/><ellipse class="bd-talk" cx="110" cy="155" rx="9" ry="6"/></g>' +
+        '</g>' +
+      '</g>' +
+      '<g class="bd-dots"><circle cx="160" cy="62" r="5"/><circle cx="176" cy="48" r="6.5"/><circle cx="195" cy="32" r="8"/></g>' +
+      '</svg></div>';
+  }
+  V.buddy = buddy;
+  // Le tableau des règles, avec la situation de la semaine en évidence
+  function confRules(A, st) {
+    const cur = st ? (st.reason === 'coupure' ? 'coupure' : st.reason === 'indisponible' ? 'indisponible' : st.mode) : null;
+    return '<div class="table-wrap"><table class="table stack"><thead><tr><th>Situation</th><th>Le médecin au sol</th><th>L’IA du vaisseau</th></tr></thead><tbody>' +
+      CONF.rules.map(m => '<tr' + (m.id === cur ? ' class="current"' : '') + '><td data-label="Situation"><b>' + esc(m.label) + '</b>' + (m.id === cur ? ' ' + UI.pill('normal', 'cette semaine') : '') + '</td><td data-label="Médecin au sol">' + esc(m.doctor) + '</td><td data-label="IA du vaisseau">' + esc(m.ai) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+  V.confRules = confRules;
+  function confExplain(A, st) {
+    return '<p class="small" style="max-width:62ch">Comme sur l’ISS, chaque membre d’équipage a chaque semaine une visioconférence médicale privée de 15 minutes : alimentation, sommeil, exercice, élimination, charge de travail et bien-être. Le médecin au sol la mène tant qu’on peut se parler en direct, c’est-à-dire avec moins de 10 secondes de délai. Au-delà, pendant la conjonction ou s’il n’est pas disponible, AURA, l’IA du vaisseau, la mène avec les mêmes sujets et lui envoie le résumé relu par la personne.</p>' +
+      confBand(A) + confRules(A, st) + UI.sources(['nasaPmc']);
+  }
+  V.confExplain = confExplain;
 
   /* ------------------------------------------------------------------ */
   /* Journal                                                              */
@@ -277,7 +379,7 @@
     h += '<ol class="proto" aria-label="Procédure">' + em.steps.map((st, i) => '<li class="' + (st.done ? 'done' : i === next ? 'next' : '') + '"><label><input type="checkbox" data-act="step" data-i="' + i + '"' + (st.done ? ' checked' : '') + '><span>' + esc(st.label) + '</span></label></li>').join('') + '</ol>';
     const msg = s.queue.filter(q => q.prio === 1 && q.t >= em.t).sort((a, b) => a.t - b.t)[0];
     const L = E.lightMinutes(D.mission, s.now / DAY);
-    if (msg) h += '<p class="note" style="margin-top:16px">Message prioritaire vers la Terre : ' + esc(msg.status) + (msg.arrAt ? ', arrivée ' + (msg.arrAt <= s.now ? 'à ' : 'prévue à ') + esc(f.clock(msg.arrAt % DAY)) : '') + '. Délai actuel : ' + esc(f.dur(Math.round(L))) + ' dans chaque sens. Agissez sans attendre la réponse.</p>';
+    if (msg) h += '<p class="note" style="margin-top:16px">Message prioritaire vers la Terre : ' + esc(msg.status) + (msg.arrAt ? ', arrivée ' + (msg.arrAt <= s.now ? 'à ' : 'prévue à ') + esc(f.clock(msg.arrAt % DAY)) : '') + '. Délai actuel : ' + esc(f.delay(L)) + ' dans chaque sens. Agissez sans attendre la réponse.</p>';
     if (em.over) h += '<div class="callout calm" style="margin-top:14px"><p>L’événement est terminé depuis ' + esc(f.clock(em.over % DAY)) + '. Vous pouvez sortir de l’abri et terminer le mode urgence.</p></div>';
     const spe = em.kind === 'spe' ? S.speAt(s, s.now) : null;
     if (spe) h += '<p class="note" style="margin-top:10px">Débit de dose : ' + esc(f.num(S.doseRateAt(s, s.now), 0)) + ' mSv par jour, ' + spe.factor + ' fois le niveau habituel. Fin prévue de l’éruption à ' + esc(f.when(spe.end)) + '.</p><div class="btn-row"><button class="btn sm" data-act="advance-to" data-t="' + (spe.end + 5) + '">Avancer jusqu’à la fin de l’éruption</button></div>';

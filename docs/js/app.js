@@ -50,7 +50,7 @@
       case 'co2': { const v = S.co2At(s, s.now); return 'CO₂ de la cabine : ' + f.num(v, 1) + ' mmHg, ' + (v > 3 ? 'au-dessus' : 'en dessous') + ' de la limite de 3 mmHg.'; }
       case 'sleep': { if (!me) return ''; const an = E.analyzeWellbeing(s.wb.filter(w => w.a === me), d); return an.sleep7 !== null ? 'Votre sommeil moyen cette semaine : ' + f.hours(an.sleep7) + ' par nuit.' : ''; }
       case 'radiation': return 'Dose reçue depuis le départ : ' + f.num(S.radTotalNow(s), 0) + ' mSv. Débit actuel : ' + f.num(S.doseRateAt(s, s.now), 2) + ' mSv par jour.';
-      case 'link': return 'Délai radio : ' + f.dur(Math.round(E.lightMinutes(D.mission, s.now / DAY))) + ' dans chaque sens. Liaison ' + (E.isBlackout(D.mission, s.now / DAY) ? 'coupée (conjonction solaire)' : 'établie') + '.';
+      case 'link': return 'Délai radio : ' + f.delay(E.lightMinutes(D.mission, s.now / DAY)) + ' dans chaque sens. Liaison ' + (E.isBlackout(D.mission, s.now / DAY) ? 'coupée (conjonction solaire)' : 'établie') + '.';
       case 'pharmacy': { const n = D.meds.reduce((x, m) => x + E.medFlags(m, s.stock[m.id], d, D.mission).filter(fl => fl.level !== 'info').length, 0); return n ? n + ' point(s) de vigilance dans la pharmacie de bord.' : 'Aucun point de vigilance dans la pharmacie de bord.'; }
       case 'transition': { let last = null; D.mission.gravityTransitions.forEach(x => { if (x <= d) last = x; }); return last === null ? '' : 'Dernier changement de gravité : ' + f.day(last) + ', il y a ' + (d - last) + ' jours.'; }
       default: return '';
@@ -59,7 +59,7 @@
   function boardContext() {
     const s = A.s, day = s.now / DAY, L = [];
     const ph = E.phaseAt(D.mission, day);
-    L.push('Moment : ' + f.when(s.now) + ', ' + ph.label.toLowerCase() + (ph.gravity ? ' (gravité ' + f.num(ph.gravity, 2) + ' g)' : ' (apesanteur)') + '. Délai radio : ' + (E.isBlackout(D.mission, day) ? 'liaison coupée.' : f.dur(Math.round(E.lightMinutes(D.mission, day))) + ' dans chaque sens.'));
+    L.push('Moment : ' + f.when(s.now) + ', ' + ph.label.toLowerCase() + (ph.gravity ? ' (gravité ' + f.num(ph.gravity, 2) + ' g)' : ' (apesanteur)') + '. Délai radio : ' + (E.isBlackout(D.mission, day) ? 'liaison coupée.' : f.delay(E.lightMinutes(D.mission, day)) + ' dans chaque sens.'));
     L.push('CO₂ cabine : ' + f.num(S.co2At(s, s.now), 1) + ' mmHg (limite 3). Dose reçue : ' + f.num(S.radTotalNow(s), 0) + ' mSv.');
     const who = s.role === 'crew' ? [s.me] : D.crew.map(c => c.id);
     who.forEach(id => {
@@ -105,14 +105,14 @@
   /* Navigation par profil                                                */
   /* ------------------------------------------------------------------ */
   const NAV = {
-    crew: [['', 'Aujourd’hui'], ['mesurer', 'Mesurer'], ['bien-etre', 'Bien-être'], ['assistant', 'Assistant'], ['conference', 'Entretien de la semaine'], null, ['dossier', 'Mon dossier'], ['liaison', 'Liaison Terre'], ['mission', 'Mission et cabine']],
-    doctor: [['', 'Équipage'], ['alertes', 'Alertes'], ['conference', 'Conférence'], ['pharmacie', 'Pharmacie'], ['planification', 'Planification'], ['bien-etre', 'Bien-être'], null, ['assistant', 'Assistant'], ['liaison', 'Liaison Terre'], ['mission', 'Mission et cabine']],
-    ground: [['', 'Reçu du vaisseau'], ['equipage', 'Équipage vu du sol'], ['liaison', 'Écrire au vaisseau'], null, ['mission', 'Mission']]
+    crew: [['', 'Aujourd’hui'], ['mesurer', 'Mesurer'], ['bien-etre', 'Bien-être'], ['assistant', 'Assistant'], ['conference', 'Conférence'], null, ['dossier', 'Mon dossier'], ['liaison', 'Liaison Terre'], ['mission', 'Mission et cabine']],
+    doctor: [['', 'Équipage'], ['alertes', 'Alertes'], ['conference', 'Synthèse'], ['pharmacie', 'Pharmacie'], ['planification', 'Planification'], ['bien-etre', 'Bien-être'], null, ['assistant', 'Assistant'], ['liaison', 'Liaison Terre'], ['mission', 'Mission et cabine']],
+    ground: [['', 'Reçu du vaisseau'], ['conferences', 'Conférences'], ['equipage', 'Équipage vu du sol'], ['liaison', 'Écrire au vaisseau'], null, ['mission', 'Mission']]
   };
   const TABS = {
     crew: [['', 'Aujourd’hui'], ['mesurer', 'Mesurer'], ['assistant', 'Assistant'], ['bien-etre', 'Bien-être']],
-    doctor: [['', 'Équipage'], ['alertes', 'Alertes'], ['conference', 'Conférence'], ['pharmacie', 'Pharmacie']],
-    ground: [['', 'Reçu'], ['equipage', 'Équipage'], ['liaison', 'Écrire'], ['mission', 'Mission']]
+    doctor: [['', 'Équipage'], ['alertes', 'Alertes'], ['conference', 'Synthèse'], ['pharmacie', 'Pharmacie']],
+    ground: [['', 'Reçu'], ['conferences', 'Conférences'], ['equipage', 'Équipage'], ['liaison', 'Écrire']]
   };
   function mesurer(A) { const k = A.route.path[1]; return k === 'symptome' ? V.symptom(A) : D.metrics[k] ? V.measure(A, k) : V.measureHome(A); }
   function bienEtre(A) { const k = A.route.path[1]; return k === 'respiration' ? V.breathing(A) : k === 'paysage' ? V.landscape(A) : k === 'reaction' && H.crew(A) ? V.reaction(A) : V.wellbeing(A); }
@@ -124,7 +124,7 @@
   const ROUTES = {
     crew: Object.assign({}, BOARD, { '': V.today, 'conference': V.conferenceCrew }),
     doctor: Object.assign({}, BOARD, { '': V.crewOverview, 'conference': V.conferenceDoctor }),
-    ground: Object.assign({}, COMMON, { '': V.groundHome, 'equipage': V.groundCrew, 'liaison': V.link, 'mission': V.mission })
+    ground: Object.assign({}, COMMON, { '': V.groundHome, 'conferences': V.groundConferences, 'equipage': V.groundCrew, 'liaison': V.link, 'mission': V.mission })
   };
   function view(A) {
     const key = A.route.path[0] || '';
@@ -164,7 +164,7 @@
     let h = '<a class="brand" href="#/" aria-label="AURA, accueil"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">AURA</span></a>';
     h += '<div class="clock"><b>' + esc(f.day(day)) + ', ' + esc(f.clock(s.now % DAY)) + '</b><span class="hide-s">' + (s.role === 'ground' ? 'heure de la mission' : 'heure de bord') + '</span></div>';
     h += '<div class="top-right">';
-    h += '<a class="chip-status" href="#/liaison" title="Liaison avec la Terre"><span class="dot' + (bo ? ' off' : '') + '"></span>' + (bo ? 'Liaison coupée' : '<span class="hide-s">' + (s.role === 'ground' ? 'Vaisseau' : 'Terre') + ' : </span>' + esc(f.dur(Math.round(L)))) + '</a>';
+    h += '<a class="chip-status" href="#/liaison" title="Liaison avec la Terre"><span class="dot' + (bo ? ' off' : '') + '"></span>' + (bo ? 'Liaison coupée' : '<span class="hide-s">' + (s.role === 'ground' ? 'Vaisseau' : 'Terre') + ' : </span>' + esc(f.delay(L))) + '</a>';
     if (offline) h += '<span class="chip-status" title="AURA fonctionne sans connexion"><span class="dot"></span><span class="hide-s">Hors connexion, </span>tout fonctionne</span>';
     h += '<a class="chip-status hide-s" href="#/reglages" title="Intelligence artificielle"><span class="dot' + (A.aiReady() ? ' ai' : '') + '" style="' + (A.aiReady() ? '' : 'background:var(--ink-3)') + '"></span>' + esc(A.aiReady() ? 'IA : ' + A.aiLabel() : 'Sans IA') + '</a>';
     if (s.role !== 'ground') h += '<a class="chip-status" href="#/urgence" style="color:var(--red-ink);border-color:color-mix(in srgb, var(--red) 40%, var(--line))">Urgence</a>';
@@ -583,12 +583,13 @@
     const next = itv.step < itv.plan.length ? itv.plan[itv.step] : null;
     const closingDone = itv.answers.some(x => x.topic === 'fin');
     if (!next && closingDone) return itvFinish(itv);
+    S.syncQuestions(s, itv);
     const scripted = () => {
       if (opts.followQ) return { q: opts.followQ, follow: true };
       if (!next) return { q: D.interview.closing, topic: 'fin' };
-      return { q: (opts.first ? 'Bonjour ' + first + '. ' : '') + next.q, topic: next.id };
+      return { q: (opts.first && itv.mode !== 'differe' ? 'Bonjour ' + first + '. ' : '') + next.q, topic: next.id };
     };
-    if (!A.aiReady() || !itv.ai || opts.followQ) {
+    if (!A.aiReady() || !itv.ai || opts.followQ || itv.mode === 'differe') {
       itv.current = scripted();
       persist(); renderMain(); A.flow.scrollChat = true; speakQuestion(itv);
       focusAnswer();
@@ -599,7 +600,7 @@
     const canFollow = !!last && !last.follow && !last.skipped && follows < 3 && !(itv.followed || {})[last.topic];
     itv.current = { q: '', topic: next ? next.id : 'fin' };
     A.busy.itv = true; A.flow.itvError = null; renderMain();
-    const prompt = AI.interviewTurn({ name, first: opts.first ? first : null, facts: factsText(itv.a), next, last: last ? (last.skipped ? '(question passée)' : last.text) : '', canFollow });
+    const prompt = AI.interviewTurn({ name, first: opts.first ? first : null, facts: factsText(itv.a), next, last: last ? (last.skipped ? '(question passée)' : last.text) : '', canFollow, reason: itv.reason ? D.conference.reasons[itv.reason] : '' });
     try {
       let txt = '';
       await streamText(prompt, t => { txt = t; live('itv-q', '<p>' + esc(AI.parseTurn(t).text) + '</p>'); });
@@ -616,9 +617,11 @@
   }
   function focusAnswer() { setTimeout(() => { const t = $('itv-a'); if (t && !t.disabled) t.focus({ preventScroll: true }); const c = $('itv-current'); if (c) c.scrollIntoView({ block: 'nearest' }); }, 40); }
   function speakQuestion(itv) { if (A.set.voice.read && itv.current && itv.current.q) speak(itv.current.q, 'itv'); }
-  function itvStart() {
+  function itvStart(o) {
     const s = A.s;
-    const itv = S.startInterview(s, s.me, { ai: A.aiReady() ? A.aiLabel() : null });
+    o = o || {};
+    const itv = S.startInterview(s, s.me, { ai: A.aiReady() ? A.aiLabel() : null, mode: o.mode, reason: o.reason });
+    A.flow.callStart = Date.now(); A.flow.call = null;
     A.flow.itvDraft = ''; A.flow.itvError = null;
     persist();
     itvNext(itv, { first: true });
@@ -634,10 +637,11 @@
       S.reportRedFlag(s, { a: itv.a, flag: flags[0].id, text, src: 'conference' });
       A.flow.itvDraft = '';
       persist(); render();
-      toast('Signe d’alarme : l’entretien s’arrête, la médecin de bord est prévenue.', 'urgence');
+      toast('Signe d’alarme : la conférence s’arrête, la médecin de bord est prévenue.', 'urgence');
       return;
     }
     const cur = itv.current;
+    A.flow.buddyHappy = Date.now();
     S.answerInterview(s, itv.id, { q: cur.q, text, follow: !!cur.follow });
     if (cur.follow) { const a = itv.answers[itv.answers.length - 1]; const prev = itv.plan[itv.step - 1]; a.label = (prev ? prev.label : 'Précision') + ', précision'; a.topic = prev ? prev.id : a.topic; a.part = prev ? prev.part : a.part; }
     if (cur.topic === 'fin') { const a = itv.answers[itv.answers.length - 1]; a.topic = 'fin'; a.label = 'Pour le médecin au sol'; }
@@ -645,7 +649,7 @@
     if (cur.topic === 'fin') { itvFinish(itv); return; }
     const followed = itv.answers.filter(x => x.follow).length;
     const prevTopic = itv.plan[itv.step - 1];
-    if ((!A.aiReady() || !itv.ai) && !cur.follow && prevTopic && E.followUpNeeded(text) && !(itv.followed || {})[prevTopic.id] && followed < 3) {
+    if (itv.mode !== 'differe' && (!A.aiReady() || !itv.ai) && !cur.follow && prevTopic && E.followUpNeeded(text) && !(itv.followed || {})[prevTopic.id] && followed < 3) {
       itv.followed = itv.followed || {}; itv.followed[prevTopic.id] = 1;
       itvNext(itv, { followQ: 'Pouvez-vous m’en dire un peu plus : depuis quand, et à quel point cela vous gêne ?' });
       return;
@@ -666,14 +670,14 @@
     if (!itv) return;
     S.finishInterview(s, itv.id);
     persist();
-    if (!A.aiReady() || !itv.ai || !itv.answers.some(x => !x.skipped)) { render(); return; }
+    if (itv.mode === 'differe' || !A.aiReady() || !itv.ai || !itv.answers.some(x => !x.skipped)) { render(); return; }
     A.busy.itvSum = true; render();
     const prompt = AI.summaryPrompt({ name: S.name(itv.a), facts: factsText(itv.a), transcript: itv.answers });
     try {
       let txt = '';
       await streamText(prompt, t => { txt = t; });
       const sum = AI.parseSummary(txt);
-      if (sum.med) { itv.summary = sum; itv.summaryAi = A.aiLabel(); logAI('Résumé de l’entretien de la semaine rédigé'); }
+      if (sum.med) { itv.summary = sum; itv.summaryAi = A.aiLabel(); logAI('Résumé de la conférence de la semaine rédigé'); }
     } catch (err) { toast(err.message + ' Le résumé préparé par des règles reste affiché.'); }
     finally { A.busy.itvSum = false; persist(); renderMain(); }
   }
@@ -723,7 +727,7 @@
     if (!notes) { toast('Écrivez d’abord quelques mots.'); const b = $('msg-b'); if (b) b.focus(); return; }
     dr.orig = { title: dr.title, text: dr.text };
     const who = s.role === 'crew' ? S.name(s.me) : 'la médecin de bord';
-    const delay = E.isBlackout(D.mission, s.now / DAY) ? 'plusieurs jours (conjonction)' : f.dur(Math.round(E.lightMinutes(D.mission, s.now / DAY)));
+    const delay = E.isBlackout(D.mission, s.now / DAY) ? 'plusieurs jours (conjonction)' : f.delay(E.lightMinutes(D.mission, s.now / DAY));
     if (!A.aiReady()) {
       dr.title = dr.title || msgTitleFrom(notes);
       dr.text = 'Contexte : ' + who + ', ' + f.when(s.now) + ', ' + E.phaseAt(D.mission, s.now / DAY).label.toLowerCase() + '. Ce message met ' + delay + ' à arriver.\n\n' + notes + '\n\nMerci de répondre lors de la prochaine liaison.';
@@ -745,7 +749,7 @@
   /* Médecin au sol ------------------------------------------------------ */
   function carePlanTemplate(it) {
     if (it.kind === 'alerte') return 'Alerte bien reçue. La conduite engagée à bord est la bonne. Continuez la procédure, reprenez les constantes toutes les 15 minutes et envoyez un point de situation dans une heure. Rappelez le sol en priorité si l’état s’aggrave.';
-    if (it.kind === 'conference') return 'Merci pour ce résumé. Rien d’urgent de notre côté. Pour la semaine qui vient : gardez des horaires de sommeil réguliers, continuez les points du soir, et signalez toute gêne qui dure plus de deux jours. Nous en reparlerons à la prochaine liaison vidéo.';
+    if (it.kind === 'conference') return (it.mode === 'differe' ? 'Merci pour vos réponses. ' : 'Merci pour ce résumé. ') + 'Rien d’urgent de notre côté. Pour la semaine qui vient : gardez des horaires de sommeil réguliers, continuez les points du soir, et signalez toute gêne qui dure plus de deux jours. Nous en reparlerons à la prochaine conférence.';
     if (it.kind === 'psy') return 'Demande bien reçue. Le psychologue au sol propose un entretien privé à la prochaine fenêtre de liaison vidéo. En attendant, n’hésitez pas à en parler à la médecin de bord.';
     return 'Bien reçu. Nous avons pris connaissance de votre message et nous revenons vers vous à la prochaine liaison.';
   }
@@ -754,7 +758,7 @@
     if (!it) return;
     A.flow.reply = A.flow.reply || {};
     const dr = A.flow.reply[id] = A.flow.reply[id] || { title: 'Réponse : ' + it.title, text: '' };
-    const delay = f.dur(Math.round(E.lightMinutes(D.mission, s.now / DAY)));
+    const delay = f.delay(E.lightMinutes(D.mission, s.now / DAY));
     A.busy['reply-' + id] = true; renderMain();
     try {
       await streamText(AI.carePlanPrompt({ title: it.title, body: it.body || '', delay }), t => { dr.text = AI.clean(t); const b = $('gr-b-' + id); if (b) b.value = dr.text; });
@@ -828,8 +832,48 @@
   /* ------------------------------------------------------------------ */
   /* Respiration, paysage, test de réaction                               */
   /* ------------------------------------------------------------------ */
+  // Visioconférence : minuteur, regard d’AURA, bouche qui parle, caméra
+  function mmss(sec) { return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+  function stopCam() { if (A.camStream) { try { A.camStream.getTracks().forEach(t => t.stop()); } catch (e) { /* rien */ } A.camStream = null; } A.flow.cam = false; }
+  async function toggleCam() {
+    if (A.flow.cam) { stopCam(); renderMain(); return; }
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('indisponible');
+      A.camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      A.flow.cam = true; renderMain();
+    } catch (e) { toast('La caméra n’est pas disponible : la visioconférence continue sans votre image.'); }
+  }
+  function mountCall() {
+    const box = $('call');
+    if (!box || !$('call-timer')) { if (A.flow.cam) stopCam(); return; }
+    if (!A.flow.callStart) A.flow.callStart = Date.now();
+    const timer = $('call-timer'), total = D.conference.minutes * 60;
+    const tick = () => { const sec = Math.max(0, Math.floor((Date.now() - A.flow.callStart) / 1000)); timer.textContent = mmss(sec) + ' / ' + mmss(total); };
+    tick();
+    const iv = setInterval(tick, 1000);
+    const bd = $('buddy'), eyes = $('buddy-eyes');
+    const look = e => {
+      if (!bd || !eyes || bd.classList.contains('thinking')) return;
+      const r = bd.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 260);
+      eyes.style.transform = 'translate(' + (dx / d * 8 * k).toFixed(1) + 'px,' + (dy / d * 6 * k).toFixed(1) + 'px)';
+    };
+    document.addEventListener('pointermove', look);
+    const ta = $('itv-a');
+    const onType = () => { if (eyes && bd && !bd.classList.contains('thinking')) eyes.style.transform = 'translate(0px,8px)'; };
+    if (ta) ta.addEventListener('input', onType);
+    let t1 = 0, t2 = 0;
+    const q = $('itv-q'), text = q ? q.textContent.trim() : '';
+    if (bd && text && !bd.classList.contains('thinking') && !bd.classList.contains('listening')) {
+      const talk = () => { bd.classList.remove('happy'); bd.classList.add('talking'); t2 = setTimeout(() => bd.classList.remove('talking'), Math.min(7500, 900 + text.length * 55)); };
+      if (A.flow.buddyHappy && Date.now() - A.flow.buddyHappy < 1500) { bd.classList.add('happy'); t1 = setTimeout(talk, 900); } else talk();
+    }
+    if (A.flow.cam && A.camStream) { const v = $('cam'); if (v) v.srcObject = A.camStream; }
+    A.callRt = { destroy() { clearInterval(iv); clearTimeout(t1); clearTimeout(t2); document.removeEventListener('pointermove', look); if (ta) ta.removeEventListener('input', onType); } };
+  }
   function mountRuntime() {
     const key = A.route.path.join('/');
+    if (key === 'conference') mountCall(); else if (A.flow.cam) stopCam();
     if (key === 'bien-etre/respiration') {
       const el = $('breath');
       if (!el) return;
@@ -853,6 +897,7 @@
     }
   }
   function unmountRuntime() {
+    if (A.callRt) { A.callRt.destroy(); A.callRt = null; }
     if (A.runtime) { if (typeof A.runtime.yaw === 'number') A.flow.sceneYaw = A.runtime.yaw; A.runtime.destroy(); A.runtime = null; }
     if (A.runtime2) { A.runtime2.destroy(); A.runtime2 = null; }
   }
@@ -1045,6 +1090,17 @@
       case 'listen': listen(ds.target, el); break;
       // Entretien
       case 'itv-start': itvStart(); break;
+      case 'conf-join': A.flow.call = 'live'; A.flow.callStart = Date.now(); renderMain({ scrollTop: true }); break;
+      case 'cam': toggleCam(); break;
+      case 'conf-live-done': { S.closeLive(s, s.me, S.weekOf(s.now), { by: 'equipage' }); persist(); render(); toast('Conférence de la semaine notée comme faite. Le compte rendu du médecin arrivera ici.'); break; }
+      case 'conf-live-ia': A.flow.call = null; itvStart({ mode: 'ia', reason: 'visio' }); break;
+      case 'conf-edit': A.ui.confEdit = A.ui.confEdit === ds.a ? null : ds.a; renderMain(); break;
+      case 'conf-unavail': case 'conf-avail': {
+        const msg = S.setAvailability(s, ds.a, +ds.week, ds.act === 'conf-avail');
+        A.ui.confEdit = null; persist(); render();
+        toast((ds.act === 'conf-avail' ? 'C’est noté : vous mènerez la conférence ' + S.deName(ds.a) + '.' : 'C’est noté : l’IA du vaisseau mènera la conférence ' + S.deName(ds.a) + '.') + ' Message à bord à ' + f.clock(msg.arrAt % DAY) + '.');
+        break;
+      }
       case 'itv-skip': itvSkip(); break;
       case 'itv-finish': itvFinish(); break;
       case 'itv-retry': { const itv = curItv(); if (itv) { A.flow.itvError = null; const last = itv.answers.length; if (itv.current) itv.current = null; itvNext(itv, { first: last === 0 }); } break; }
@@ -1195,7 +1251,7 @@
         const consent = { med: !!fd.get('cmed'), psy: !!fd.get('cpsy') };
         const r = S.sendInterview(s, itv.id, consent, { med: get('med'), psy: get('psy') });
         persist(); render();
-        if (r && r.item) toast(r.item.arrAt ? 'Résumé parti : arrivée au sol à ' + f.clock(r.item.arrAt % DAY) + '.' : 'Résumé en file : il partira au retour de la liaison.');
+        if (r && r.item) toast(r.item.arrAt ? (r.item.mode === 'differe' ? 'Réponses parties' : 'Résumé parti') + ' : arrivée au sol à ' + f.clock(r.item.arrAt % DAY) + '.' : 'Résumé en file : il partira au retour de la liaison.');
         else toast('Rien n’est parti : votre résumé reste à bord.');
         break;
       }
@@ -1217,6 +1273,41 @@
         S.markGroundRead(s, ref);
         A.ui.reply = null; persist(); render();
         toast('Réponse partie : arrivée à bord à ' + f.clock(msg.arrAt % DAY) + '.');
+        break;
+      }
+      case 'conf-questions': {
+        const a = get('a'), week = +get('week');
+        const qs = S.plannedQuestions(s, a, week).map(q => Object.assign({}, q, { q: (get('q_' + q.id) || q.q).trim() || q.q }));
+        const extra = get('q_new').trim();
+        if (extra) qs.push({ id: 'q' + (s.seq + 1).toString(36), part: 'med', label: 'Question du médecin', q: extra });
+        const msg = S.sendConfQuestions(s, a, week, qs, false);
+        A.ui.confEdit = null; persist(); render();
+        toast('Questions envoyées : arrivée à bord à ' + f.clock(msg.arrAt % DAY) + '.');
+        break;
+      }
+      case 'conf-addq': {
+        const msg = S.addConfQuestion(s, get('a'), +get('week'), get('text'));
+        if (!msg) { toast('Écrivez la question avant de l’envoyer.'); return; }
+        persist(); render();
+        toast('Question envoyée : arrivée à bord à ' + f.clock(msg.arrAt % DAY) + '.');
+        break;
+      }
+      case 'conf-close': {
+        S.closeLive(s, get('a'), +get('week'), { by: 'medecin', notes: get('notes').trim() });
+        persist(); render();
+        toast('Conférence notée comme faite' + (get('notes').trim() ? ', compte rendu envoyé à bord.' : '.'));
+        break;
+      }
+      case 'conf-live-end': {
+        S.closeLive(s, s.me, S.weekOf(s.now), { by: 'equipage', notes: get('notes').trim() });
+        A.flow.call = null; A.flow.callStart = null; stopCam(); persist(); render();
+        toast('Visioconférence terminée. Le compte rendu du médecin arrivera ici.');
+        break;
+      }
+      case 'conf-prep': {
+        const rec = S.prepareLive(s, s.me, get('notes'));
+        persist(); render();
+        toast(rec.prep ? 'Envoyé au médecin au sol : il le lira avant la visioconférence.' : 'Rien à envoyer pour l’instant.');
         break;
       }
       case 'ground-message': {

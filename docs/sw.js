@@ -1,7 +1,7 @@
 /* AURA : fonctionnement hors connexion.
    Toutes les ressources de la plateforme sont mises en cache au premier
    chargement ; ensuite, AURA s’ouvre et calcule sans réseau. */
-const CACHE = 'aura-v5';
+const CACHE = 'aura-v6';
 const FILES = [
   './',
   'index.html',

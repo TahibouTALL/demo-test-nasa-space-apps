@@ -15,6 +15,7 @@
   const DAY = 1440;
   const METRIC_IDS = ['temp', 'hr', 'spo2'];
   const M = DATA.mission;
+  const CONF = DATA.conference;
 
   /* ------------------------------------------------------------------ */
   /* Utilitaires                                                         */
@@ -78,7 +79,7 @@
       stock, factor, admins: [], symptoms: [], wb: [],
       queue: [], inbox: [], vals: [], questions: [], journal: [],
       events: [], seq: 1, sim: { sensors: true }, scenario: null, step: 0, creating: false,
-      chats: {}, interviews: [], reactions: [], ground: { read: {}, acts: {} }, later: {}
+      chats: {}, interviews: [], reactions: [], ground: { read: {}, acts: {}, unavail: {} }, later: {}
     };
   }
 
@@ -116,6 +117,9 @@
     s.queue.forEach(it => { if (it.status === 'reçu' && it.arrAt < s.now - 18 * 60) s.ground.read[it.id] = it.arrAt; });
     // Les messages de la Terre arrivés avant la veille ont été lus à bord
     s.inbox.forEach(m => { if (m.status === 'reçu' && m.arrAt < s.now - 18 * 60) m.read = true; });
+    // Les conférences simulées anciennes ne gardent que l’essentiel (taille de la sauvegarde)
+    const oldWeek = weekOf(s.now) - 4;
+    s.interviews.forEach(x => { if (x.sim && x.week < oldWeek) { x.plan = []; x.answers = []; x.summary = null; } });
     return s;
   }
 
@@ -214,6 +218,14 @@
         if (ev.kind === 'spe' && ev.end > t && ev.end <= stepEnd) tasks.push({ te: ev.end, kind: 'spe-fin', ev });
       });
       s.todo.forEach(td => { if (td.kind === 'reprise-auto' && td.at > t && td.at <= stepEnd) tasks.push({ te: td.at, kind: 'reprise-auto', td }); });
+      // Conférence de la semaine : questions du médecin la veille, rendez-vous à l’heure prévue
+      DATA.crew.forEach(c => {
+        for (let w = weekOf(t); w <= weekOf(t) + 1; w++) {
+          const slot = confSlot(c.id, w), qt = slot - CONF.questionsLead;
+          if (qt > t && qt <= stepEnd) tasks.push({ te: qt, kind: 'conf-questions', a: c.id, week: w });
+          if (slot > t && slot <= stepEnd) tasks.push({ te: slot, kind: 'conf-slot', a: c.id, week: w });
+        }
+      });
       tasks.sort((a, b) => a.te - b.te);
       for (const task of tasks) {
         s.now = task.te;
@@ -261,6 +273,16 @@
         break;
       case 'spe-fin':
         endSpe(s, task.ev, task.te, out);
+        break;
+      case 'conf-questions': {
+        // Le médecin au sol envoie ses questions s’il mène la conférence (simulation du sol)
+        const md = conferenceMode(s, task.a, task.week, 'ground');
+        if (md.mode === 'differe' && !s.inbox.some(m => m.kind === 'conf-questions' && m.a === task.a && m.week === task.week && !m.extra)) sendConfQuestions(s, task.a, task.week, null, true);
+        break;
+      }
+      case 'conf-slot':
+        // Historique de la démonstration : les conférences passées ont été faites
+        if (s.creating) simulateConference(s, task.a, task.week);
         break;
       case 'reprise-auto': {
         const td = task.td;
@@ -440,7 +462,7 @@
     if (!fl) return null;
     const t = o.t !== undefined ? o.t : s.now;
     const who = name(o.a);
-    const src = { assistant: 'écrit à l’assistant', conference: 'pendant l’entretien de la semaine', symptome: 'signalé', urgence: 'signalé avec le bouton urgence' }[o.src] || 'signalé';
+    const src = { assistant: 'écrit à l’assistant', conference: 'pendant la conférence de la semaine', symptome: 'signalé', urgence: 'signalé avec le bouton urgence' }[o.src] || 'signalé';
     const al = raiseAlert(s, {
       t, lv: 'urgence', kind: 'alarme', a: o.a, ref: o.a + ':alarme:' + fl.id,
       title: 'Signe d’alarme : ' + fl.label.charAt(0).toLowerCase() + fl.label.slice(1) + ' (' + who + ')',
@@ -673,11 +695,15 @@
     let text;
     if (it.kind === 'alerte') text = 'Alerte reçue. Le médecin au sol confirme la procédure engagée à bord. Envoyez un point de situation dans une heure.';
     else if (it.kind === 'rapport') text = 'Rapport reçu.' + (it.points && it.points.length ? ' Point retenu pour la conférence : « ' + it.points[0].replace(/\.$/, '') + ' ».' : ' Rien à signaler côté médecin au sol.');
-    else if (it.kind === 'conference') text = 'Résumé de votre entretien bien reçu, merci. Rien d’urgent de notre côté. Nous reprendrons les points notés lors de la prochaine liaison vidéo.';
+    else if (it.kind === 'conference') {
+      const first = it.a ? name(it.a).split(' ')[0] : '';
+      const focus = { sommeil: ' Pour le sommeil, gardez des horaires réguliers et dites-moi si les nuits restent courtes.', medicament: ' Pour le traitement qui n’a pas toujours suffi, j’en parle avec la médecin de bord.', moral: ' Pour le moral, parlez-en à la médecin de bord quand vous voulez, ou demandez un entretien avec le psychologue.' }[it.focus] || ' Rien d’inquiétant de mon côté.';
+      text = (it.mode === 'differe' ? 'Merci ' + first + ', j’ai lu vos réponses.' : 'Merci ' + first + ', j’ai bien reçu le résumé de votre conférence avec l’IA.') + focus + ' On en reparle à la prochaine conférence.';
+    }
     else if (it.kind === 'synthese') text = 'Synthèse de la semaine reçue. Les points à discuter sont notés pour la prochaine liaison vidéo.';
     else if (it.title.indexOf('dose') >= 0) text = 'Changement de dose noté. Le médecin au sol le confirmera lors de la prochaine conférence.';
     else text = 'Message reçu. Le médecin au sol vous répond lors de la prochaine conférence.';
-    return { id: 'g' + it.id, t: gs, sentAt: gs, arrAt: arr, title: 'Réponse : ' + it.title, text, from: 'Médecin au sol (réponse simulée)', read: false, status: 'en route', ref: it.id, a: it.a || null, to: audienceOf(it), priv: it.kind === 'psy', kind: 'reponse' };
+    return { id: 'g' + it.id, t: gs, sentAt: gs, arrAt: arr, title: 'Réponse : ' + it.title, text, from: 'Médecin au sol (réponse simulée)', read: false, status: 'en route', ref: it.id, a: it.a || null, to: audienceOf(it), priv: it.kind === 'psy' || !!it.priv, week: it.week, kind: 'reponse' };
   }
   function refreshQueue(s) {
     E.processQueue(M, s.queue, s.inbox, s.now, replyFor);
@@ -750,7 +776,12 @@
     const arr = depart + E.lightMinutes(M, depart / DAY);
     const refIt = o.ref ? s.queue.find(q => q.id === o.ref) : null;
     const to = o.to || (refIt ? audienceOf(refIt) : o.a ? o.a : 'all');
-    const msg = { id: nextId(s, 'd'), t: s.now, sentAt: depart, arrAt: arr, title: o.title || 'Message du médecin au sol', text: o.text || '', from: 'Médecin au sol', read: false, status: arr <= s.now ? 'reçu' : 'en route', ref: o.ref || null, a: o.a || (/^a\d/.test(to) ? to : null), to, priv: !!(o.priv || (refIt && refIt.kind === 'psy')), kind: o.kind || 'plan', prio: o.prio || 2, ai: o.ai || null };
+    const msg = { id: nextId(s, 'd'), t: s.now, sentAt: depart, arrAt: arr, title: o.title || 'Message du médecin au sol', text: o.text || '', from: 'Médecin au sol', read: false, status: arr <= s.now ? 'reçu' : 'en route', ref: o.ref || null, a: o.a || (/^a\d/.test(to) ? to : null), to, priv: !!(o.priv || (refIt && (refIt.kind === 'psy' || refIt.priv))), kind: o.kind || 'plan', prio: o.prio || 2, ai: o.ai || null };
+    if (o.week !== undefined) msg.week = o.week;
+    else if (refIt && refIt.week !== undefined) msg.week = refIt.week;
+    if (o.qs) msg.qs = o.qs;
+    if (o.auto) msg.auto = true;
+    if (o.extra) msg.extra = true;
     s.inbox.push(msg);
     if (o.ref) {
       const it = s.queue.find(q => q.id === o.ref);
@@ -820,7 +851,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Conférence de la semaine (F7) : faits, entretien, envoi              */
+  /* Conférence de la semaine (F7) : faits, questions, envoi             */
   /* ------------------------------------------------------------------ */
   function weekFacts(s, a, endDay) {
     const end = endDay === undefined ? dayOf(s.now) : endDay;
@@ -856,23 +887,44 @@
     };
   }
   function currentInterview(s, a) {
-    const week = Math.floor(dayOf(s.now) / 7);
+    const week = weekOf(s.now);
     return s.interviews.filter(x => x.a === a && x.week === week).sort((x, y) => y.t - x.t)[0] || null;
   }
+  // Conférence de la semaine : avec le médecin au sol (questions reçues) ou avec l’IA
   function startInterview(s, a, o) {
     o = o || {};
-    const week = Math.floor(dayOf(s.now) / 7);
-    const facts = weekFacts(s, a);
-    const plan = E.interviewPlan(DATA.interview, facts, week);
-    const itv = { id: nextId(s, 'i'), a, t: s.now, week, plan, step: 0, answers: [], status: 'en cours', ai: o.ai || null, followed: {}, flags: [], summary: null, consent: { med: true, psy: false }, sentId: null };
+    const week = weekOf(s.now);
+    const facts = o.facts || weekFacts(s, a);
+    const st = conferenceStatus(s, a, week);
+    const mode = o.mode || (st.mode === 'direct' ? 'ia' : st.mode);
+    let plan = null;
+    if (mode === 'differe') plan = doctorPlan(st.received.length ? st.received : st.questions);
+    if (!plan || !plan.length) plan = E.interviewPlan(DATA.interview, facts, week);
+    const reason = mode === 'ia' ? (o.reason || st.reason || null) : null;
+    const itv = { id: nextId(s, 'i'), a, t: s.now, week, plan, step: 0, answers: [], status: 'en cours', mode, reason, by: mode === 'ia' ? 'ia' : 'medecin', ai: mode === 'ia' ? (o.ai || null) : null, followed: {}, flags: [], summary: null, consent: { med: true, psy: false }, sentId: null };
+    if (o.sim) itv.sim = true;
     s.interviews.push(itv);
-    if (s.interviews.length > 120) s.interviews.splice(0, s.interviews.length - 120);
-    log(s, s.now, 'conference', 'Entretien de la semaine commencé par ' + name(a) + '.', a);
+    if (s.interviews.length > 400) s.interviews.splice(0, s.interviews.length - 400);
+    if (!o.sim) log(s, s.now, 'conference', 'Conférence de la semaine commencée par ' + name(a) + (mode === 'differe' ? ', avec le médecin au sol en différé.' : ', avec l’IA du vaisseau.'), a);
+    return itv;
+  }
+  // Questions du médecin au sol, dans l’ordre, sans doublon
+  function doctorPlan(msgs) {
+    const plan = [];
+    (msgs || []).slice().sort((x, y) => x.t - y.t).forEach(m => (m.qs || []).forEach(q => { if (!plan.some(x => x.id === q.id)) plan.push(Object.assign({}, q)); }));
+    return plan;
+  }
+  // Une question ajoutée par le médecin pendant la conférence rejoint la liste
+  function syncQuestions(s, itv) {
+    if (!itv || itv.mode !== 'differe' || itv.status !== 'en cours') return itv;
+    const extra = doctorPlan(s.inbox.filter(m => m.kind === 'conf-questions' && m.a === itv.a && m.week === itv.week && m.status === 'reçu'));
+    extra.forEach(q => { if (!itv.plan.some(x => x.id === q.id)) itv.plan.push(q); });
     return itv;
   }
   function answerInterview(s, id, o) {
     const itv = s.interviews.find(x => x.id === id);
     if (!itv || itv.status !== 'en cours') return null;
+    syncQuestions(s, itv);
     const topic = itv.plan[itv.step] || { id: 'fin', part: 'med', label: 'Pour finir' };
     itv.answers.push({ topic: topic.id, part: topic.part, label: topic.label, q: o.q || topic.q, text: o.text || '', skipped: !!o.skipped, follow: !!o.follow, t: s.now });
     if (!o.follow) itv.step += 1;
@@ -887,6 +939,10 @@
     if (ai) itv.summaryAi = ai;
     return itv;
   }
+  function focusOf(s, a) {
+    const fx = weekFacts(s, a);
+    return fx.sleepDrop >= 0.5 ? 'sommeil' : fx.partialMed ? 'medicament' : fx.moodDrop >= 0.8 ? 'moral' : null;
+  }
   function sendInterview(s, id, consent, texts) {
     const itv = s.interviews.find(x => x.id === id);
     if (!itv) return null;
@@ -895,11 +951,12 @@
     const parts = [];
     if (itv.consent.med && itv.summary.med) parts.push('Partie médicale\n' + itv.summary.med);
     if (itv.consent.psy && itv.summary.psy) parts.push('Partie psychologique (partagée avec l’accord ' + deName(itv.a) + ')\n' + itv.summary.psy);
-    if (!parts.length) { itv.status = 'gardé à bord'; log(s, s.now, 'conference', 'Entretien de la semaine ' + deName(itv.a) + ' gardé à bord, rien n’est envoyé.', itv.a); return { itv, item: null }; }
-    const body = parts.join('\n\n');
-    const it = enqueue(s, { t: s.now, title: 'Entretien de la semaine : ' + name(itv.a), kind: 'conference', prio: 2, kb: Math.max(2, Math.round(body.length / 400)), reply: true, a: itv.a, body, ai: itv.summaryAi || null });
+    if (!parts.length) { itv.status = 'gardé à bord'; itv.tSent = s.now; log(s, s.now, 'conference', 'Conférence de la semaine ' + deName(itv.a) + ' faite ; rien n’est envoyé, tout reste à bord.', itv.a); return { itv, item: null }; }
+    const head = itv.mode === 'differe' ? 'Réponses aux questions du médecin au sol.' : 'Conférence menée par l’IA du vaisseau' + (itv.reason && CONF.reasons[itv.reason] ? ' : ' + CONF.reasons[itv.reason] : '') + '.';
+    const body = head + (itv.sim ? ' Réponses simulées pour la démonstration.' : '') + '\n\n' + parts.join('\n\n');
+    const it = enqueue(s, { t: s.now, title: 'Conférence de la semaine : ' + name(itv.a), kind: 'conference', prio: 2, kb: Math.max(2, Math.round(body.length / 400)), reply: true, a: itv.a, body, ai: itv.summaryAi || null, mode: itv.mode, week: itv.week, priv: true, focus: itv.focus !== undefined ? itv.focus : focusOf(s, itv.a), sim: !!itv.sim });
     itv.status = 'envoyé'; itv.sentId = it.id; itv.tSent = s.now;
-    log(s, s.now, 'conference', 'Résumé de l’entretien ' + deName(itv.a) + ' mis en file vers le médecin au sol' + (itv.consent.psy ? ', partie psychologique comprise avec son accord' : ', sans la partie psychologique') + '.', itv.a);
+    log(s, s.now, 'conference', itv.sim ? 'Conférence de la semaine ' + deName(itv.a) + ' faite ' + (itv.mode === 'differe' ? 'avec le médecin au sol, en différé.' : 'avec l’IA du vaisseau.') : (itv.mode === 'differe' ? 'Réponses ' + deName(itv.a) + ' au médecin au sol mises en file' : 'Résumé de la conférence ' + deName(itv.a) + ' mis en file vers le médecin au sol') + (itv.consent.psy ? ', partie psychologique comprise avec son accord.' : ', sans la partie psychologique.'), itv.a);
     return { itv, item: it };
   }
   function flagInterview(s, id, flagIds) {
@@ -908,6 +965,173 @@
     flagIds.forEach(f => { const fl = DATA.redFlags.find(x => x.id === f); if (fl && itv.flags.indexOf(fl.label) < 0) itv.flags.push(fl.label); });
     itv.status = 'interrompu';
     return itv;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Conférence médicale de la semaine (F7)                               */
+  /* ------------------------------------------------------------------ */
+  function weekOf(t) { return Math.floor(dayOf(t) / 7); }
+  function confSlot(a, week) { return (week * 7 + (CONF.slots[a] || 0)) * DAY + CONF.hour; }
+  // Ce que la liaison permet au moment du rendez-vous
+  function linkMode(day) {
+    if (E.isBlackout(M, day)) return { mode: 'ia', reason: 'coupure' };
+    const L = E.lightMinutes(M, day);
+    if (L <= CONF.liveMax) return { mode: 'direct', reason: null };
+    if (CONF.delayedMax && L <= CONF.delayedMax) return { mode: 'differe', reason: null };
+    return { mode: 'ia', reason: 'delai' };
+  }
+  // Disponibilité du médecin : au sol, sa décision ; à bord, le dernier message reçu
+  function doctorUnavailable(s, a, week, side) {
+    if (side === 'ground') return !!(s.ground.unavail && s.ground.unavail[week + ':' + a]);
+    const ms = s.inbox.filter(m => (m.kind === 'conf-indispo' || m.kind === 'conf-dispo') && m.a === a && m.week === week && m.status === 'reçu').sort((x, y) => x.arrAt - y.arrAt || x.t - y.t);
+    return ms.length > 0 && ms[ms.length - 1].kind === 'conf-indispo';
+  }
+  function conferenceMode(s, a, week, side) {
+    const t = confSlot(a, week), day = t / DAY;
+    const r = Object.assign({ a, week, t, delay: E.lightMinutes(M, day) }, linkMode(day));
+    if (r.mode !== 'ia' && doctorUnavailable(s, a, week, side)) { r.mode = 'ia'; r.reason = 'indisponible'; }
+    return r;
+  }
+  function confRecords(s, a, week) { return s.interviews.filter(x => x.a === a && x.week === week).sort((x, y) => x.t - y.t); }
+  // État de la conférence, vu du vaisseau
+  function conferenceStatus(s, a, week) {
+    if (week === undefined) week = weekOf(s.now);
+    const md = conferenceMode(s, a, week);
+    const recs = confRecords(s, a, week);
+    const rec = recs[recs.length - 1] || null;
+    const questions = s.inbox.filter(m => m.kind === 'conf-questions' && m.a === a && m.week === week).sort((x, y) => x.t - y.t);
+    const received = questions.filter(m => m.status === 'reçu');
+    const notes = s.inbox.find(m => m.kind === 'conf-notes' && m.a === a && m.week === week && m.status === 'reçu') || null;
+    const mode = rec ? rec.mode : md.mode, reason = rec ? rec.reason : md.reason;
+    const weekEnd = (week + 1) * 7 * DAY;
+    const done = !!rec && ['envoyé', 'gardé à bord', 'faite'].indexOf(rec.status) >= 0;
+    let state;
+    if (rec && rec.status === 'interrompu') state = 'interrompue';
+    else if (done) state = 'faite';
+    else if (rec && (rec.status === 'en cours' || rec.status === 'terminé')) state = 'en cours';
+    else if (s.now >= weekEnd) state = 'non faite';
+    else if (mode === 'differe') state = received.length ? 'prête' : questions.length ? 'questions en route' : 'à venir';
+    else if (mode === 'direct') state = s.now >= md.t - DAY ? 'prête' : 'à venir';
+    else state = 'prête';
+    const sentItem = rec && rec.sentId ? s.queue.find(q => q.id === rec.sentId) : null;
+    const reply = sentItem ? s.inbox.find(m => m.ref === sentItem.id && m.status === 'reçu') || null : null;
+    return { a, week, t: md.t, delay: md.delay, mode, reason, linkMode: md.mode, rec, questions, received, notes, state, done, weekEnd, slotPassed: s.now >= md.t, sentItem, reply };
+  }
+  // État de la conférence, vu du sol (ce qui est arrivé sur Terre)
+  function groundConference(s, a, week) {
+    if (week === undefined) week = weekOf(s.now);
+    const md = conferenceMode(s, a, week, 'ground');
+    const questions = s.inbox.filter(m => m.kind === 'conf-questions' && m.a === a && m.week === week).sort((x, y) => x.t - y.t);
+    const items = s.queue.filter(q => q.a === a && q.week === week && (q.kind === 'conference' || q.kind === 'conf-prep') && q.status === 'reçu').sort((x, y) => y.arrAt - x.arrAt);
+    const answers = items.find(q => q.kind === 'conference') || null;
+    const prep = items.find(q => q.kind === 'conf-prep') || null;
+    const act = answers ? s.ground.acts[answers.id] : null;
+    const reply = answers ? (act ? s.inbox.find(m => m.id === act.id) : s.inbox.find(m => m.ref === answers.id)) || null : null;
+    const live = s.interviews.find(x => x.a === a && x.week === week && x.mode === 'direct' && x.status === 'faite') || null;
+    const notes = s.inbox.find(m => m.kind === 'conf-notes' && m.a === a && m.week === week) || null;
+    let state;
+    if (answers) state = reply ? 'répondue' : 'réponses reçues';
+    else if (md.mode === 'direct') state = live ? 'faite' : s.now >= md.t ? 'à faire' : 'prévue';
+    else if (md.mode === 'differe') state = questions.length ? 'questions envoyées' : 'à préparer';
+    else state = 'avec l’IA';
+    return { a, week, t: md.t, delay: md.delay, mode: md.mode, reason: md.reason, linkMode: linkMode(md.t / DAY).mode, questions, answers, prep, reply, live, notes, state, unavailable: !!(s.ground.unavail && s.ground.unavail[week + ':' + a]), sendAt: md.t - CONF.questionsLead };
+  }
+  // Questions du médecin au sol (préparées par AURA à partir des données reçues, modifiables)
+  function plannedQuestions(s, a, week) {
+    return E.interviewPlan(DATA.interview, weekFacts(s, a), week).map(p => ({ id: p.id, part: p.part, label: p.label, q: p.q }));
+  }
+  function sendConfQuestions(s, a, week, qs, auto) {
+    const first = name(a).split(' ')[0];
+    const list = qs && qs.length ? qs : plannedQuestions(s, a, week);
+    const intro = 'Bonjour ' + first + '. Voici mes questions pour notre conférence de la semaine. Répondez à votre rythme, à la voix ou par écrit : je lis vos réponses dès leur arrivée et je vous réponds.';
+    return sendDown(s, { kind: 'conf-questions', to: a, a, priv: true, week, auto: !!auto, prio: 2, title: 'Conférence de la semaine : les questions du médecin au sol', text: intro + '\n\n' + list.map((p, i) => (i + 1) + '. ' + p.q).join('\n'), qs: list });
+  }
+  function addConfQuestion(s, a, week, text) {
+    const q = String(text || '').trim();
+    if (!q) return null;
+    return sendDown(s, { kind: 'conf-questions', to: a, a, priv: true, week, extra: true, prio: 2, title: 'Conférence de la semaine : une question de plus', text: q, qs: [{ id: 'q' + (s.seq + 1).toString(36), part: 'med', label: 'Question du médecin', q }] });
+  }
+  function setAvailability(s, a, week, available) {
+    const key = week + ':' + a;
+    if (available) delete s.ground.unavail[key]; else s.ground.unavail[key] = s.now;
+    const msg = sendDown(s, available
+      ? { kind: 'conf-dispo', to: a, a, week, prio: 2, title: 'Conférence de la semaine : le médecin au sol la mènera', text: 'Finalement, je peux mener notre conférence de cette semaine. Mes questions vous arriveront avant le rendez-vous.' }
+      : { kind: 'conf-indispo', to: a, a, week, prio: 2, title: 'Conférence de la semaine : avec l’IA cette fois', text: 'Je ne peux pas mener notre conférence de cette semaine. L’IA du vaisseau la mènera avec vous ; je lirai le résumé que vous aurez relu, et je vous répondrai.' });
+    // De nouveau disponible après l’heure d’envoi prévue : les questions partent tout de suite
+    if (available) {
+      const md = conferenceMode(s, a, week, 'ground');
+      if (md.mode === 'differe' && s.now >= md.t - CONF.questionsLead && !s.inbox.some(m => m.kind === 'conf-questions' && m.a === a && m.week === week && !m.extra)) sendConfQuestions(s, a, week, null, false);
+    }
+    return msg;
+  }
+  // Visioconférence (près de la Terre) : ce que la personne veut aborder, puis le compte rendu
+  function liveRecord(s, a, week) {
+    let rec = confRecords(s, a, week).find(x => x.mode === 'direct');
+    if (!rec) {
+      rec = { id: nextId(s, 'i'), a, t: s.now, week, mode: 'direct', reason: null, by: 'medecin', status: 'prévue', plan: [], answers: [], flags: [], summary: null, consent: { med: true, psy: false }, prep: '' };
+      s.interviews.push(rec);
+    }
+    return rec;
+  }
+  function prepareLive(s, a, notes) {
+    const week = weekOf(s.now);
+    const rec = liveRecord(s, a, week);
+    rec.prep = String(notes || '').trim();
+    if (rec.prep) {
+      const it = enqueue(s, { t: s.now, title: 'Conférence en direct : ce que ' + name(a) + ' veut aborder', kind: 'conf-prep', prio: 2, kb: 2, reply: false, a, priv: true, week, body: rec.prep });
+      rec.prepId = it.id;
+    }
+    return rec;
+  }
+  function closeLive(s, a, week, o) {
+    o = o || {};
+    if (week === undefined) week = weekOf(s.now);
+    const rec = liveRecord(s, a, week);
+    rec.status = 'faite'; rec.tDone = s.now; rec.closedBy = o.by || 'equipage';
+    if (o.notes && o.by !== 'medecin') rec.crewNotes = o.notes;
+    else if (o.notes) {
+      rec.doctorNotes = o.notes;
+      sendDown(s, { kind: 'conf-notes', to: a, a, priv: true, week, prio: 2, title: 'Conférence en direct : le compte rendu du médecin au sol', text: o.notes });
+    }
+    log(s, s.now, 'conference', 'Conférence de la semaine ' + deName(a) + ' faite en direct avec le médecin au sol.', a);
+    return rec;
+  }
+  // Réponses simulées pour l’historique de la démonstration
+  function simAnswer(p, fx) {
+    const T = CONF.simulated;
+    if (p.id === 'sommeil') return fx.sleep7 !== null ? 'Environ ' + E.fmt.hours(fx.sleep7) + ' par nuit' + (fx.sleepDrop >= 0.5 ? ', moins bien que d’habitude.' : ', ça va.') : 'Correctement.';
+    if (p.id === 'charge') return 'Chargée certains jours, mais ça va.';
+    if (p.id === 'gene') return fx.partialMed ? 'Le ' + fx.partialMed.toLowerCase() + ' n’a pas toujours suffi.' : 'Non, rien de particulier.';
+    if (p.id === 'moral' || p.id === 'bienetre') return fx.moodDrop >= 0.8 ? 'Un peu fatigué en ce moment.' : 'Ça va, plutôt bien.';
+    return T[p.id] || 'Rien de particulier.';
+  }
+  function simulateConference(s, a, week) {
+    if (confRecords(s, a, week).length) return;
+    const md = conferenceMode(s, a, week);
+    if (md.mode === 'direct') {
+      const rec = liveRecord(s, a, week);
+      Object.assign(rec, { status: 'faite', tDone: s.now + 15, closedBy: 'medecin', sim: true, doctorNotes: 'Visioconférence d’un quart d’heure. Adaptation au vol en cours, rien de particulier à signaler.' });
+      log(s, s.now, 'conference', 'Conférence de la semaine ' + deName(a) + ' faite en direct avec le médecin au sol.', a);
+      return;
+    }
+    const fx = weekFacts(s, a);
+    const itv = startInterview(s, a, { mode: md.mode, reason: md.reason, sim: true, facts: fx });
+    itv.plan.slice().forEach(p => answerInterview(s, itv.id, { q: p.q, text: simAnswer(p, fx) }));
+    answerInterview(s, itv.id, { q: DATA.interview.closing, text: CONF.simulated.fin });
+    finishInterview(s, itv.id, E.interviewSummary(itv, fx, name));
+    itv.focus = fx.sleepDrop >= 0.5 ? 'sommeil' : fx.partialMed ? 'medicament' : fx.moodDrop >= 0.8 ? 'moral' : null;
+    sendInterview(s, itv.id, { med: true, psy: false });
+  }
+  // Les grandes périodes de la mission : qui peut mener la conférence (sans les indisponibilités)
+  function modeTimeline() {
+    const runs = [];
+    for (let d = 0; d <= M.durationDays; d++) {
+      const m = linkMode(d + CONF.hour / DAY);
+      const id = m.mode === 'ia' && m.reason === 'coupure' ? 'coupure' : m.mode;
+      const last = runs[runs.length - 1];
+      if (last && last.id === id) last.end = d + 1; else runs.push({ id, start: d, end: d + 1 });
+    }
+    return runs;
   }
 
   /* ------------------------------------------------------------------ */
@@ -1008,9 +1232,13 @@
       const rec = list.slice(-2).reduce((x, r) => x + r.median, 0) / 2;
       if (rec > base * 1.08) points.push({ who: c.id, kind: 'bienetre', text: c.name + ' : temps de réaction plus lent (' + E.fmt.num(rec, 0) + ' ms contre ' + E.fmt.num(base, 0) + ' ms), à rapprocher du sommeil.' });
     });
-    s.interviews.filter(x => x.t >= from && x.t < to && x.flags && x.flags.length).forEach(x => points.push({ who: x.a, kind: 'alerte', text: 'Signe d’alarme pendant l’entretien ' + deName(x.a) + ' : ' + x.flags.join(', ') + '.' }));
+    s.interviews.filter(x => x.t >= from && x.t < to && x.flags && x.flags.length).forEach(x => points.push({ who: x.a, kind: 'alerte', text: 'Signe d’alarme pendant la conférence ' + deName(x.a) + ' : ' + x.flags.join(', ') + '.' }));
     const questions = s.questions.filter(q => q.conf && q.t < to);
     questions.forEach(q => points.push({ who: q.a, kind: 'question', text: 'Question ' + deName(q.a) + ' : « ' + q.q + ' »' }));
+    if (!s.creating) {
+      const cw = Math.floor((endDay - 6) / 7);
+      if (cw >= 0) DATA.crew.forEach(c => { if (conferenceStatus(s, c.id, cw).state === 'non faite') points.push({ who: c.id, kind: 'conference', text: 'Conférence de la semaine (' + E.fmt.day(cw * 7) + ' à ' + E.fmt.day(cw * 7 + 6) + ') non faite : ' + name(c.id) + '.' }); });
+    }
     const admins = s.admins.filter(inWeek);
     const symptoms = s.symptoms.filter(inWeek);
     return {
@@ -1076,8 +1304,10 @@
         break;
       }
       case 's5':
-        s = createState({ day: 63, minute: 18 * 60 + 30 });
-        extra = { reportEnd: 63 };
+        s = createState({ day: 9, minute: 9 * 60 });
+        break;
+      case 's9':
+        s = createState({});
         break;
       case 's6':
         s = createState({ day: 446, minute: 9 * 60 });
@@ -1139,7 +1369,9 @@
     series, lastMeasurement, explain, weeklyReport, reportText, runScenario,
     reportRedFlag, packet, groundItems, groundKnown, markGroundRead, sendDown, inboxFor, enrouteFor, canRead, audienceOf, audienceLabel, DOCTOR_ID,
     upcomingTasks, whenText, actionOptions, reactionTrend, wellbeingState,
-    weekFacts, currentInterview, startInterview, answerInterview, finishInterview, sendInterview, flagInterview,
+    weekFacts, currentInterview, startInterview, answerInterview, finishInterview, sendInterview, flagInterview, syncQuestions,
+    weekOf, confSlot, linkMode, conferenceMode, conferenceStatus, groundConference, plannedQuestions, sendConfQuestions, addConfQuestion,
+    setAvailability, prepareLive, closeLive, modeTimeline,
     chatAdd, chatClear, raiseAlert, addReaction,
     save, load, clear, dayOf
   };

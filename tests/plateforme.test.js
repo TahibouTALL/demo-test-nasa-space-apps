@@ -115,7 +115,8 @@ section('Entretien de la semaine');
 test('la question sur le sommeil s’appuie sur la semaine de Keiko Tanaka', () => {
   const s = S.createState({});
   const itv = S.startInterview(s, 'a3');
-  assert.ok(/plus courtes depuis/.test(itv.plan[0].q), itv.plan[0].q);
+  const sl = itv.plan.find(p => p.id === 'sommeil');
+  assert.ok(/plus courtes depuis/.test(sl.q), sl.q);
 });
 test('une réponse qui signale une gêne appelle une précision', () => {
   assert.ok(E.followUpNeeded('J’ai un peu mal au dos depuis mardi'));
@@ -126,7 +127,7 @@ test('la partie psychologique ne part qu’avec l’accord de la personne', () =
   const itv = S.startInterview(s, 'a2');
   itv.plan.forEach(tp => S.answerInterview(s, itv.id, { q: tp.q, text: tp.part === 'psy' ? 'Un peu seul ces jours-ci.' : 'Ça va.' }));
   S.finishInterview(s, itv.id);
-  assert.ok(itv.summary.med.indexOf('Entretien de Lucas Moreau') === 0);
+  assert.ok(itv.summary.med.indexOf('Conférence de Lucas Moreau') === 0, itv.summary.med.slice(0, 60));
   const sansPsy = S.sendInterview(s, itv.id, { med: true, psy: false });
   assert.ok(sansPsy.item.body.indexOf('Partie psychologique') < 0);
   const itv2 = S.startInterview(s, 'a2');
@@ -141,6 +142,47 @@ test('la partie psychologique ne part qu’avec l’accord de la personne', () =
 });
 
 /* ------------------------------------------------------------------ */
+section('Visioconférence de la semaine');
+test('les six sujets : alimentation, sommeil, exercice, élimination, charge de travail, bien-être', () => {
+  const s = S.createState({});
+  const itv = S.startInterview(s, 'a2');
+  assert.deepStrictEqual(itv.plan.map(p => p.id), ['alimentation', 'sommeil', 'sport', 'elimination', 'charge', 'bienetre']);
+  assert.strictEqual(itv.plan.find(p => p.id === 'bienetre').part, 'psy');
+  assert.strictEqual(D.conference.minutes, 15);
+});
+test('près de la Terre, le médecin au sol mène la visioconférence ; à 3 minutes de délai, AURA', () => {
+  const near = S.createState({ day: 9, minute: 9 * 60 });
+  const st = S.conferenceStatus(near, 'a2');
+  assert.strictEqual(st.mode, 'direct');
+  assert.strictEqual(st.state, 'prête');
+  const far = S.conferenceStatus(S.createState({}), 'a2');
+  assert.strictEqual(far.mode, 'ia');
+  assert.strictEqual(far.reason, 'delai');
+  assert.strictEqual(S.conferenceMode(S.createState({}), 'a2', 63).reason, 'coupure');
+});
+test('médecin indisponible : AURA prend le relais, une fois le message reçu à bord', () => {
+  const s = S.createState({ day: 9, minute: 9 * 60 });
+  S.setAvailability(s, 'a2', 1, false);
+  assert.strictEqual(S.groundConference(s, 'a2').mode, 'ia');
+  S.advanceTo(s, s.now + 2);
+  const st = S.conferenceStatus(s, 'a2');
+  assert.strictEqual(st.mode, 'ia');
+  assert.strictEqual(st.reason, 'indisponible');
+});
+test('visioconférence avec le médecin : faite, compte rendu envoyé à bord', () => {
+  const s = S.createState({ day: 9, minute: 9 * 60 });
+  S.closeLive(s, 'a2', 1, { by: 'medecin', notes: 'Bonne semaine, rien à signaler.' });
+  assert.strictEqual(S.conferenceStatus(s, 'a2').state, 'faite');
+  S.advanceTo(s, s.now + 2);
+  assert.ok(S.conferenceStatus(s, 'a2').notes, 'compte rendu reçu');
+});
+test('une semaine passée sans conférence est notée « non faite »', () => {
+  const s = S.createState({});
+  S.advanceTo(s, 63 * 1440 + 9 * 60);
+  assert.strictEqual(S.conferenceStatus(s, 'a2', 8).state, 'non faite');
+  assert.strictEqual(S.conferenceStatus(s, 'a1', 8).state, 'faite');
+});
+
 section('Liaison avec la Terre');
 test('les réponses aux rapports médicaux ne reviennent qu’à la médecin de bord', () => {
   const s = S.createState({});

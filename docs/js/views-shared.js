@@ -188,7 +188,7 @@
     const pending = s.queue.filter(q => !q.sentAt);
     let body = '';
     const st = blackout ? ['urgence', 'La liaison est coupée jusqu’à ' + f.day(D.mission.conjunction.end) + '.', ground ? 'Le vaisseau continue seul. Vos messages partiront au retour du signal.' : 'Tout continue à bord : mesures, alertes, pharmacie, synthèse. Les messages attendent ici, sans rien perdre.']
-      : [ 'normal', (ground ? 'Le vaisseau reçoit vos messages en ' : 'La Terre reçoit vos messages en ') + f.dur(Math.round(L)) + '.', 'Une question et sa réponse prennent au moins ' + f.dur(Math.round(2 * L + 45)) + ', réflexion du médecin comprise.' ];
+      : [ 'normal', (ground ? 'Le vaisseau reçoit vos messages en ' : 'La Terre reçoit vos messages en ') + f.delay(L) + '.', 'Une question et sa réponse prennent au moins ' + f.dur(Math.round(2 * L + 45)) + ', réflexion du médecin comprise.' ];
     if (blackout && !ground) body += '<div class="callout attention" style="margin-top:22px"><p>Pour la démonstration, vous pouvez avancer le temps jusqu’au retour du signal : la file se vide par ordre de priorité.</p><div class="btn-row" style="margin-top:8px"><button class="btn primary" data-act="advance-to" data-t="' + (D.mission.conjunction.end * DAY + 90) + '">Avancer jusqu’à la fin de la conjonction</button></div></div>';
     if (ground) {
       // Le médecin au sol écrit au vaisseau
@@ -203,13 +203,13 @@
     const viewer = H.doc(A) ? 'doctor' : s.me;
     const inbox = S.inboxFor(s, viewer).slice(0, 12);
     const enroute = S.enrouteFor(s, viewer);
-    const msgLi = m => '<li' + (m.id === sel ? ' class="sel"' : '') + '><div class="row"><div style="flex:1 1 320px"><div class="row-title">' + esc(m.title) + '</div><p style="margin:6px 0 0;white-space:pre-wrap">' + esc(m.text) + '</p><div class="row-meta" style="margin-top:6px">' + esc(m.from) + ', reçu ' + esc(H.ago(A, m.arrAt)) + (H.doc(A) && S.audienceLabel(m) !== 'la médecin de bord' ? ', pour ' + esc(S.audienceLabel(m)) : '') + (m.ai ? ', brouillon rédigé avec l’IA puis relu' : '') + '</div></div>' + (m.read ? '' : UI.pill('normal', 'nouveau')) + '</div></li>';
+    const msgLi = m => '<li' + (m.id === sel ? ' class="sel"' : '') + '><div class="row"><div style="flex:1 1 320px"><div class="row-title">' + esc(m.title) + '</div><p style="margin:6px 0 0;white-space:pre-wrap">' + esc(m.text) + '</p><div class="row-meta" style="margin-top:6px">' + esc(m.from) + ', reçu ' + esc(H.ago(A, m.arrAt)) + (H.doc(A) && S.audienceLabel(m) !== 'la médecin de bord' ? ', pour ' + esc(S.audienceLabel(m)) : '') + (m.ai ? ', brouillon rédigé avec l’IA puis relu' : '') + '</div>' + (/^conf-/.test(m.kind) || (m.kind === 'reponse' && m.week !== undefined && /Conférence/.test(m.title)) ? '<div class="btn-row" style="margin-top:8px"><a class="btn sm" href="#/conference">Ouvrir la conférence</a></div>' : '') + '</div>' + (m.read ? '' : UI.pill('normal', 'nouveau')) + '</div></li>';
     const firstMsgs = inbox.slice(0, 3), olderMsgs = inbox.slice(3);
     body += H.section('Messages de la Terre', enroute.length ? UI.plural(enroute.length, 'message') + ' en route vers le vaisseau.' : null, inbox.length ? '<ul class="list msgs">' + firstMsgs.map(msgLi).join('') + '</ul>' + (olderMsgs.length ? '<details class="more"><summary>Voir ' + UI.plural(olderMsgs.length, 'message plus ancien', 'messages plus anciens') + '</summary><ul class="list msgs">' + olderMsgs.map(msgLi).join('') + '</ul></details>' : '') : '<p class="empty">Aucun message pour vous en ce moment.</p>');
     // Écrire au sol : un seul texte, AURA peut le compléter
     const dr = A.flow.msg || { title: A.route.q.objet || '', text: '' };
     const busy = A.busy.msg;
-    const delayTxt = blackout ? 'Pendant la coupure, il attendra ici le retour du signal.' : 'Il mettra ' + f.dur(Math.round(L)) + ' à arriver.';
+    const delayTxt = blackout ? 'Pendant la coupure, il attendra ici le retour du signal.' : 'Il mettra ' + f.delay(L) + ' à arriver.';
     const helpTxt = dr.prepared ? (dr.ai ? 'Mis en forme par l’IA (' + dr.ai + ') à partir de votre texte : relisez avant l’envoi.' : 'Contexte de la mission ajouté : relisez avant l’envoi.') : (A.aiReady() ? 'L’IA peut en faire un message clair, qui se comprend sans aller-retour.' : 'AURA peut ajouter le contexte de la mission, pour que le message se comprenne sans aller-retour.');
     let form = '<form data-form="message" class="panel">';
     form += '<div class="field"><label for="msg-b">Votre message</label><textarea id="msg-b" name="text" class="ai-edit" style="min-height:150px" placeholder="Ce qui se passe, ce que vous voulez demander. Quelques mots suffisent." required>' + esc(dr.text) + '</textarea><span class="hint">' + esc(delayTxt + ' ' + helpTxt) + '</span></div>';
@@ -253,7 +253,7 @@
     const rows = [
       ['Phase', ph.label + (ph.gravity ? ', gravité ' + f.num(ph.gravity, 2) + ' g' : ', apesanteur'), 'Profil de mission (fictif)', 'à jour'],
       ['Jour de vol', f.day(day) + ' sur ' + D.mission.durationDays, 'Horloge de bord', 'à jour'],
-      ['Délai radio', bo ? 'liaison coupée' : f.dur(Math.round(L)) + ' dans chaque sens', 'Modèle Terre-Mars simplifié', 'à jour'],
+      ['Délai radio', bo ? 'liaison coupée' : f.delay(L) + ' dans chaque sens', 'Modèle Terre-Mars simplifié', 'à jour'],
       ['CO₂ de la cabine', f.num(co2, 1) + ' mmHg sur une heure (limite 3)', 'Capteur de cabine (simulé)', 'il y a moins d’une heure'],
       ['Débit de dose', f.num(S.doseRateAt(s, s.now), S.doseRateAt(s, s.now) < 10 ? 2 : 0) + ' mSv par jour' + (spe ? ', éruption solaire en cours' : ''), 'Débits publiés, Curiosity (simulé)', 'à jour'],
       ['Dose reçue', f.num(S.radTotalNow(s), 0) + ' mSv depuis le départ (limite de carrière 600)', 'Calcul de bord', 'à jour'],
