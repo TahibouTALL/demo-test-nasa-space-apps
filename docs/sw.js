@@ -1,7 +1,7 @@
 /* AURA : fonctionnement hors connexion.
    Toutes les ressources de la plateforme sont mises en cache au premier
    chargement ; ensuite, AURA s’ouvre et calcule sans réseau. */
-const CACHE = 'aura-v6';
+const CACHE = 'aura-v7';
 const FILES = [
   './',
   'index.html',
@@ -41,7 +41,14 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  // Réseau d’abord pour les pages (mise à jour), cache sinon ; cache d’abord pour le reste.
+  // Réseau d’abord pour les pages, les scripts et les styles (mise à jour), cache sinon ; cache d’abord pour le reste.
+  if (/\.(js|css)$/.test(new URL(req.url).pathname)) {
+    event.respondWith(
+      fetch(req).then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put('index.html', copy)); return res; })

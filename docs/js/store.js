@@ -9,8 +9,8 @@
 })(typeof self !== 'undefined' ? self : this, function (DATA, E) {
   'use strict';
 
-  const VERSION = 5;
-  const KEY = 'aura.etat.v5';
+  const VERSION = 6;
+  const KEY = 'aura.etat.v6';
   const SEED = 20261114;
   const DAY = 1440;
   const METRIC_IDS = ['temp', 'hr', 'spo2'];
