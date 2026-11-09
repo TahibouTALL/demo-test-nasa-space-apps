@@ -1,0 +1,178 @@
+<canvas id="gl" aria-label="Vue en trois dimensions de la scène"></canvas>
+<div id="ui">
+  <header class="topbar">
+    <button class="brand" id="btnHome" aria-label="Retour au menu"><b>AURA</b><span>Immersion</span></button>
+    <div class="top-title" id="topTitle"></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btnSound" aria-pressed="true" title="Son">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="w2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <span class="lbl">Son</span>
+      </button>
+      <button class="icon-btn" id="btnFull" title="Plein écran">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        <span class="lbl">Plein écran</span>
+      </button>
+      <button class="icon-btn vr" id="btnVR" hidden title="Entrer dans le casque">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5C3 7.7 3.7 7 4.5 7h15c.8 0 1.5.7 1.5 1.5v7c0 .8-.7 1.5-1.5 1.5h-4.2l-2-2.6h-2.6l-2 2.6H4.5C3.7 17 3 16.3 3 15.5z"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/></svg>
+        <span class="lbl">Casque</span>
+      </button>
+      <button class="icon-btn desk-only" id="btnQuit" title="Quitter l'application">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <span class="lbl">Quitter</span>
+      </button>
+      <button class="icon-btn" id="btnAbout" title="À propos et sources">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>
+        <span class="lbl">À propos</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="menu" class="screen">
+    <div class="menu-wrap">
+      <section class="hero">
+        <p class="eyebrow">AURA · réalité virtuelle de l'équipage</p>
+        <h1>Souffler loin de la station. Répéter l'urgence avant qu'elle arrive.</h1>
+        <p id="heroText">Quatre lieux calmes pour prendre une pause pendant la mission, et quatre urgences médicales à répéter avec l'aide d'AURA. Tout fonctionne à l'écran ; avec un casque compatible, on entre dans la scène.</p>
+        <div class="facts"><span class="chip aura" id="chipMode">Écran ou casque</span><span class="chip">Fondé sur les fiches AURA</span><span class="chip">Sources citées</span></div>
+      </section>
+      <div class="section-head"><h2>Se détendre</h2><p>5 à 15 minutes, avec une respiration guidée si vous le souhaitez. Votre niveau de stress avant et après reste sur cet appareil.</p></div>
+      <div class="cards" id="cardsRelax"></div>
+      <div class="section-head"><h2>S'entraîner</h2><p>Des urgences rares mais graves, à répéter avant d'en avoir besoin. Vous décidez ; AURA rappelle la fiche et note ce qui a été fait.</p></div>
+      <div class="cards" id="cardsSim"></div>
+      <div class="menu-note">
+        <strong>Ce que vous voyez est calculé en temps réel.</strong> Le relief, l'eau, le ciel et les nuages sont produits par le programme ; la Terre utilise les images Blue Marble et les lumières nocturnes de la NASA, et l'orbite suit celle de la Station spatiale internationale. Les simulations suivent les fiches AURA et des recommandations publiées. Leurs modèles du corps sont simplifiés : elles servent à répéter les gestes et les décisions, pas à remplacer une formation encadrée.
+        <button class="linkbtn" id="btnAbout2">À propos et sources</button>
+      </div>
+    </div>
+  </main>
+
+  <section id="precheck" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="pcTitle">
+    <div class="sheet">
+      <h2 id="pcTitle">Avant de commencer</h2>
+      <p class="lead" id="pcScene"></p>
+      <h3>Quel est votre niveau de stress en ce moment ?</h3>
+      <div class="scale" id="pcMood"></div>
+      <h3 class="vr-only">Votre état</h3>
+      <label class="check vr-only"><input type="checkbox" id="pcNausea"> J'ai des nausées ou le mal de l'espace en ce moment.</label>
+      <label class="check vr-only"><input type="checkbox" id="pcGrav"> Mon arrivée en orbite, ou mon retour sur Terre, date de moins de 3 jours.</label>
+      <div class="alert amber vr-only" id="pcWarn" hidden>Dans ce cas, restez à l'écran plutôt qu'au casque : un casque peut aggraver le mal de l'espace. La scène reste la même.</div>
+      <h3>Durée</h3>
+      <div class="seg" id="pcDur"><button data-v="5">5 min</button><button data-v="10" aria-pressed="true">10 min</button><button data-v="15">15 min</button></div>
+      <label class="check"><input type="checkbox" id="pcBreath" checked> Respiration guidée : inspirer 4 secondes, expirer 6 secondes.</label>
+      <p class="small-print vr-only">En apesanteur, attachez-vous ou tenez une main courante avant de mettre un casque.</p>
+      <div class="actions"><button class="btn" data-close>Annuler</button><button class="btn primary" id="pcGo">Commencer</button></div>
+    </div>
+  </section>
+
+  <section id="after" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="afTitle">
+    <div class="sheet">
+      <h2 id="afTitle">Séance terminée</h2>
+      <p class="lead">Quel est votre niveau de stress maintenant ?</p>
+      <div class="scale" id="afMood"></div>
+      <div id="afResult"></div>
+      <p class="small-print">Ces réponses restent sur cet appareil. Elles ne sont envoyées à personne.</p>
+      <div class="actions"><button class="btn" id="afStay">Rester dans la scène</button><button class="btn primary" id="afMenu">Retour au menu</button></div>
+    </div>
+  </section>
+
+  <section id="relaxHud" hidden>
+    <div class="hint" id="lookHint">Faites glisser pour regarder autour de vous</div>
+    <div class="relax-presets" id="relaxPresets"></div>
+    <div class="relax-caption" id="relaxCaption"></div>
+    <div class="relax-bottom">
+      <div class="breath" id="breathRing" aria-hidden="true"><div class="ring"></div></div>
+      <div class="breath-txt" aria-live="polite"><b id="breathWord">Respirez</b><span id="breathSub">à votre rythme</span></div>
+      <div class="relax-timer" id="relaxTimer">10:00</div>
+      <button class="btn small" id="btnBreath" aria-pressed="true">Respiration</button>
+      <button class="btn small" id="btnEndRelax">Terminer</button>
+    </div>
+  </section>
+
+  <section id="brief" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="brTitle">
+    <div class="sheet wide">
+      <p class="eyebrow">Simulation médicale</p>
+      <h2 id="brTitle"></h2>
+      <p class="lead" id="brContext"></p>
+      <dl class="kv" id="brFacts"></dl>
+      <h3>Réglages</h3>
+      <div class="row" style="margin-bottom:10px"><span style="min-width:150px">Aide d'AURA</span><div class="seg" id="brMode"><button data-v="guide" aria-pressed="true">Guidé</button><button data-v="exam">Examen : AURA se tait jusqu'au bilan</button></div></div>
+      <div class="row"><span style="min-width:150px">Liaison avec le sol</span><div class="seg" id="brComm"><button data-v="directe" aria-pressed="true">Directe</button><button data-v="differee">Différée, 5 min aller</button><button data-v="coupee">Coupée</button></div></div>
+      <div class="alert aura" id="brNote"></div>
+      <div class="actions"><button class="btn" data-close>Annuler</button><button class="btn primary" id="brGo">Commencer la simulation</button></div>
+    </div>
+  </section>
+
+  <section id="simHud" hidden>
+    <div class="sim-top">
+      <span class="sim-clock" id="simClock">00:00</span>
+      <div class="seg" id="simSpeed"><button data-v="0">Pause</button><button data-v="1" aria-pressed="true">×1</button><button data-v="2">×2</button><button data-v="5">×5</button></div>
+      <span class="comm" id="simComm"><i class="dot"></i><span>Sol</span></span>
+      <button class="btn small" id="simEnd">Terminer</button>
+    </div>
+    <div class="sim-left">
+      <div class="panel">
+        <div class="panel-h"><span>Moniteur</span><span id="monWho"></span></div>
+        <div class="monitor-wrap"><canvas id="monitor" width="800" height="500" aria-label="Moniteur du patient"></canvas></div>
+        <div class="alarm-line" id="alarmLine" hidden></div>
+        <div class="patient-box"><div class="who" id="patWho"></div><div class="obs" id="patObs"></div></div>
+      </div>
+      <div class="panel" id="cprPanel" hidden>
+        <div class="panel-h"><span>Compressions</span><span id="cprInfo"></span></div>
+        <div class="cpr-pad">
+          <button class="btn primary" id="cprTap">Appuyer au rythme</button>
+          <div class="meter"><div class="track"><div class="needle" id="cprNeedle"></div></div><div class="lbl"><span>lent</span><span>100 à 120 par minute</span><span>rapide</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="sim-right">
+      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="panel-h"><span>Actions</span><span id="crewFree"></span></div>
+        <div class="tabs" id="actTabs" role="tablist"></div>
+        <div class="actions-list" id="actList"></div>
+      </div>
+    </div>
+    <div class="sim-bottom">
+      <div class="panel" id="guidePanel"><div class="panel-h"><span>AURA</span><span id="guideRef"></span></div><div class="guide" id="guide"></div></div>
+      <div class="panel"><div class="panel-h"><span>Journal</span><span id="logCount"></span></div><div class="log" id="log" aria-live="polite"></div></div>
+    </div>
+    <div class="speech" id="speech" hidden></div>
+  </section>
+
+  <section id="usPanel" hidden role="dialog" aria-modal="true" aria-labelledby="usTitle">
+    <div class="us-sheet">
+      <div>
+        <h2 id="usTitle">Échographie</h2>
+        <p class="small-print" id="usHelp">Faites glisser la sonde sur le corps. Le petit trait indique le repère de la sonde.</p>
+        <div class="us-body"><canvas id="usBody" width="600" height="800"></canvas></div>
+        <div class="us-controls">
+          <span>Rotation</span><input type="range" id="usRot" min="-90" max="90" value="0"><span id="usRotV">0°</span>
+          <span>Inclinaison</span><input type="range" id="usTilt" min="-40" max="40" value="0"><span id="usTiltV">0°</span>
+          <span>Profondeur</span><input type="range" id="usDepth" min="8" max="20" value="15"><span id="usDepthV">15 cm</span>
+          <span>Gain</span><input type="range" id="usGain" min="-10" max="10" value="0"><span id="usGainV">0</span>
+        </div>
+      </div>
+      <div>
+        <div class="us-screen"><canvas id="usImage" width="640" height="480"></canvas><div class="us-overlay" id="usOverlay"></div></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn small" id="usBreath" aria-pressed="false">Inspiration bloquée</button>
+          <button class="btn small" id="usSnap">Enregistrer l'image</button>
+          <button class="btn small" id="usRead">Interpréter</button>
+          <button class="btn small primary" id="usClose">Fermer</button>
+        </div>
+        <div class="us-guide" id="usGuide"></div>
+        <div class="us-shots" id="usShots"></div>
+        <div id="usQuiz"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="debrief" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="dbTitle">
+    <div class="sheet wide" id="dbBody"></div>
+  </section>
+
+  <section id="about" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="abTitle">
+    <div class="sheet wide" id="abBody"></div>
+  </section>
+
+  <div id="loading" hidden><div class="box"><div class="spinner"></div><div id="loadingTxt">Chargement de la scène</div></div></div>
+</div>

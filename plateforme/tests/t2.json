@@ -1,0 +1,245 @@
+[
+{
+"js": "localStorage.clear(); location.reload(); 1",
+"wait": 1500
+},
+{
+"click": "[data-id='a2']",
+"wait": 1500
+},
+{
+"js": "__aura.talk.handle('emmène-moi au lac'); 1",
+"wait": 9000
+},
+{
+"shot": "20_lac",
+"wait": 500
+},
+{
+"js": "document.querySelector('.immersive iframe').contentDocument.querySelector('#btnHome').click(); 1",
+"wait": 1500
+},
+{
+"js": "JSON.stringify({open: !!document.querySelector('.immersive'), esc: __aura.store.member('a2').escapes.length})"
+},
+{
+"js": "__aura.talk.handle(\"lance la simulation d'arrêt cardiaque\"); 1",
+"wait": 9000
+},
+{
+"shot": "21_sim",
+"wait": 500
+},
+{
+"js": "const d=document.querySelector('.immersive iframe').contentDocument; d.querySelector('#btnHome').click(); 1",
+"wait": 1200
+},
+{
+"js": "const d=document.querySelector('.immersive iframe').contentDocument; d.querySelector('#dbMenu').click(); 1",
+"wait": 1500
+},
+{
+"js": "JSON.stringify({open: !!document.querySelector('.immersive'), sims: __aura.store.member('a2').sims})"
+},
+{
+"js": "__aura.go('accueil'); 1",
+"wait": 800
+},
+{
+"js": "__aura.talk.handle(\"j'ai fait 30 minutes de vélo\"); 1",
+"wait": 1500
+},
+{
+"shot": "22_velo",
+"wait": 200
+},
+{
+"js": "__aura.talk.handle('appelle-toi Nova'); 1",
+"wait": 1500
+},
+{
+"js": "__aura.talk.handle(\"c'est quoi le mal de l'espace ?\"); 1",
+"wait": 1500
+},
+{
+"shot": "23_question",
+"wait": 2500
+},
+{
+"js": "JSON.stringify(__aura.store.member('a2').chat.slice(-6).map(x=>x.from+': '+x.text.slice(0,90)))"
+},
+{
+"js": "__aura.talk.handle(\"j'ai une douleur dans la poitrine\"); 1",
+"wait": 1500
+},
+{
+"shot": "24_urgence",
+"wait": 500
+},
+{
+"js": "document.querySelector('.emergency [data-x]').click(); 1",
+"wait": 500
+},
+{
+"js": "__aura.videos.play('sortie'); 1",
+"wait": 3500
+},
+{
+"shot": "25_video",
+"wait": 200
+},
+{
+"js": "document.querySelector('.player [data-x]').click(); 1",
+"wait": 500
+},
+{
+"hash": "#/sante?mesure=temp",
+"wait": 1500
+},
+{
+"click": "#mPlus",
+"wait": 200
+},
+{
+"click": "#mPlus",
+"wait": 200
+},
+{
+"click": "#mSave",
+"wait": 1200
+},
+{
+"shot": "26_mesure",
+"wait": 300
+},
+{
+"js": "__aura.closeSheet(); 1",
+"wait": 300
+},
+{
+"hash": "#/conference?ecrit=1",
+"wait": 2500
+},
+{
+"fill": [
+"#cIn",
+"Bon appétit, je bois bien"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Je me réveille la nuit, c'est difficile"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Depuis une semaine environ"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Les séances vont bien"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Rien de spécial"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Beaucoup de travail mais ça va"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Le moral est bon, la famille me manque un peu"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 1800
+},
+{
+"fill": [
+"#cIn",
+"Ça va, je les appelle dimanche"
+]
+},
+{
+"press": [
+"#cIn",
+"Enter"
+],
+"wait": 2500
+},
+{
+"shot": "27_conf_resume",
+"wait": 300
+},
+{
+"size": [
+390,
+844
+],
+"hash": "#/accueil",
+"shot": "28_mobile_accueil",
+"wait": 2000
+},
+{
+"hash": "#/sante",
+"shot": "29_mobile_sante",
+"wait": 1200
+}
+]

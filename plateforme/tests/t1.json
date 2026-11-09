@@ -1,0 +1,22 @@
+[
+  {"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+  {"shot": "01_bienvenue", "wait": 1500},
+  {"click": "[data-id='a3']", "wait": 400},
+  {"shot": "02_accueil", "wait": 2500},
+  {"hash": "#/sante", "shot": "03_sante", "wait": 1200},
+  {"hash": "#/triage?t=j'ai mal à la tête depuis ce matin", "shot": "04_triage_q", "wait": 1500},
+  {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400},
+  {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400}, {"click": "[data-a='0']", "wait": 400},
+  {"shot": "05_triage_resultat", "wait": 1500},
+  {"hash": "#/videos", "shot": "06_videos", "wait": 1200},
+  {"hash": "#/simulations", "shot": "07_simulations", "wait": 1500},
+  {"hash": "#/evasion", "shot": "08_evasion", "wait": 1500},
+  {"hash": "#/defis", "shot": "09_defis", "wait": 2200},
+  {"hash": "#/journal", "shot": "10_journal", "wait": 1200},
+  {"hash": "#/cmo", "shot": "11_cmo", "wait": 1500},
+  {"hash": "#/cmo/valider", "shot": "12_valider", "wait": 1200},
+  {"hash": "#/cmo/pharmacie", "wait": 1000}, {"click": "#mcRun", "wait": 2500}, {"shot": "13_pharmacie", "wait": 300},
+  {"hash": "#/cmo/fiches", "shot": "14_fiches", "wait": 1200},
+  {"hash": "#/cmo/fiche/F-DIG-12", "wait": 1000}, {"click": "#fTest", "wait": 600}, {"shot": "15_fiche", "wait": 300},
+  {"hash": "#/conference", "shot": "16_conference", "wait": 2500}
+]

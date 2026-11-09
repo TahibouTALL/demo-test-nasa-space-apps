@@ -1,0 +1,7 @@
+[
+  {"js": "localStorage.clear(); 1", "wait": 300},
+  {"js": "location.reload(); 1", "wait": 2000},
+  {"js": "window.__vt=[]; const o=document.startViewTransition.bind(document); document.startViewTransition=function(cb){ __vt.push('start'); const t=o(()=>{__vt.push('cb'); return cb();}); t.updateCallbackDone.then(()=>__vt.push('done'),e=>__vt.push('cberr '+e)); t.ready.then(()=>__vt.push('ready'),e=>__vt.push('readyerr '+e.message)); t.finished.then(()=>__vt.push('fin'),e=>__vt.push('finerr '+e)); return t;}; 1"},
+  {"click": "[data-id='a3']", "wait": 2000},
+  {"js": "JSON.stringify({vt: __vt, first: document.querySelector('.view').firstElementChild.className})"}
+]
