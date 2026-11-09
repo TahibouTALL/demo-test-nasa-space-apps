@@ -1,44 +1,41 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AURA : santé de l’équipage</title>
-<meta name="description" content="AURA, plateforme de suivi de la santé des astronautes pour les missions vers Mars : repères médicaux adaptés aux conditions du vol, signes d’alarme, pharmacie, entretien de la semaine avec l’IA, liaison avec la Terre. NASA Space Apps Challenge 2026, Dakar.">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)">
-<link rel="manifest" href="manifest.webmanifest">
+<title>AURA</title>
+<meta name="description" content="AURA, la santé de l'équipage en mission lointaine : Sophie guide chaque astronaute, oriente à partir des fiches médicales, mène la conférence de la semaine, et propose simulations, évasion, vidéos et défis.">
+<meta name="theme-color" content="#0C1230">
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/icon-192.png">
-<link rel="preload" href="assets/fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/aura.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/aura.css">
 </head>
 <body>
-<a class="skip" href="#main">Aller au contenu</a>
-<div class="app">
-  <header class="topbar" id="top"></header>
-  <div id="urgency" class="urgency" hidden></div>
-  <nav class="sidebar" id="nav" aria-label="Navigation principale"></nav>
-  <main id="main" tabindex="-1">
-    <div class="page calm"><h1 class="hello">AURA</h1><p class="lead">Chargement de la plateforme…</p>
-      <noscript><p>AURA a besoin de JavaScript pour calculer les repères médicaux dans votre navigateur. Activez-le pour utiliser la plateforme.</p></noscript>
-    </div>
-  </main>
-</div>
-<nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
-<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
-<div class="tooltip" id="tooltip" role="tooltip"></div>
-<script src="js/data.js"></script>
-<script src="js/kb.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/store.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/views-core.js"></script>
-<script src="js/views-crew.js"></script>
-<script src="js/views-doctor.js"></script>
-<script src="js/views-shared.js"></script>
-<script src="js/relax.js"></script>
-<script src="js/app.js"></script>
+<div id="app"></div>
+<noscript><p style="padding:24px;color:#F2F4FF">AURA a besoin de JavaScript pour fonctionner.</p></noscript>
+<script src="js/core/util.js"></script>
+<script src="js/core/data.js"></script>
+<script src="js/core/engine.js"></script>
+<script src="js/core/pharma.js"></script>
+<script src="js/kb/vocab.js"></script>
+<script src="js/kb/fiches.js"></script>
+<script src="js/kb/fiches-data.js"></script>
+<script src="js/kb/triage.js"></script>
+<script src="js/core/gamify.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/core/kb.js"></script>
+<script src="js/sophie/character.js"></script>
+<script src="js/sophie/voice.js"></script>
+<script src="js/sophie/llm.js"></script>
+<script src="js/sophie/brain.js"></script>
+<script src="js/lib/qrcode.js"></script>
+<script src="js/ui/shell.js"></script>
+<script src="js/ui/crew.js"></script>
+<script src="js/ui/conference.js"></script>
+<script src="js/ui/videos.js"></script>
+<script src="js/ui/immersive.js"></script>
+<script src="js/ui/defis.js"></script>
+<script src="js/ui/cmo.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>

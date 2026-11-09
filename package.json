@@ -1,11 +1,14 @@
 {
   "name": "aura-sante-equipage",
-  "version": "2.0.0",
-  "description": "AURA : suivi de la santé des astronautes avec des repères adaptés aux conditions du vol, signes d’alarme, pharmacie, entretien de la semaine avec l’IA et liaison avec la Terre (NASA Space Apps Challenge 2026, Dakar)",
+  "version": "3.0.0",
+  "private": true,
+  "description": "AURA : suivi médical autonome de l'équipage, guidé par Sophie (NASA Space Apps Challenge 2026, Dakar)",
   "scripts": {
-    "start": "node server/server.js",
-    "test": "node tests/engine.test.js && node tests/plateforme.test.js",
-    "test:navigateur": "node tests/browser.test.mjs"
+    "build": "python3 plateforme/tools/build.py",
+    "build:fiches": "node plateforme/tools/build-kb.js plateforme/kb/fiches.md plateforme/src/js/kb/fiches-data.js",
+    "start": "python3 -m http.server 8000 --directory docs",
+    "test": "node plateforme/tests/test-triage.js",
+    "test:navigateur": "node plateforme/tests/shots.js docs plateforme/tests/captures plateforme/tests/t1.json"
   },
   "license": "MIT"
 }
