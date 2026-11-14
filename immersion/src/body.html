@@ -88,86 +88,42 @@
     </div>
   </section>
 
-  <section id="brief" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="brTitle">
-    <div class="sheet wide">
-      <p class="eyebrow">Simulation médicale</p>
-      <h2 id="brTitle"></h2>
-      <p class="lead" id="brContext"></p>
-      <dl class="kv" id="brFacts"></dl>
-      <h3>Réglages</h3>
-      <div class="row" style="margin-bottom:10px"><span style="min-width:150px">Aide d'AURA</span><div class="seg" id="brMode"><button data-v="guide" aria-pressed="true">Guidé</button><button data-v="exam">Examen : AURA se tait jusqu'au bilan</button></div></div>
-      <div class="row"><span style="min-width:150px">Liaison avec le sol</span><div class="seg" id="brComm"><button data-v="directe" aria-pressed="true">Directe</button><button data-v="differee">Différée, 5 min aller</button><button data-v="coupee">Coupée</button></div></div>
-      <div class="alert aura" id="brNote"></div>
-      <div class="actions"><button class="btn" data-close>Annuler</button><button class="btn primary" id="brGo">Commencer la simulation</button></div>
-    </div>
-  </section>
-
-  <section id="simHud" hidden>
-    <div class="sim-top">
-      <span class="sim-clock" id="simClock">00:00</span>
-      <div class="seg" id="simSpeed"><button data-v="0">Pause</button><button data-v="1" aria-pressed="true">×1</button><button data-v="2">×2</button><button data-v="5">×5</button></div>
-      <span class="comm" id="simComm"><i class="dot"></i><span>Sol</span></span>
-      <button class="btn small" id="simEnd">Terminer</button>
-    </div>
-    <div class="sim-left">
-      <div class="panel">
-        <div class="panel-h"><span>Moniteur</span><span id="monWho"></span></div>
-        <div class="monitor-wrap"><canvas id="monitor" width="800" height="500" aria-label="Moniteur du patient"></canvas></div>
-        <div class="alarm-line" id="alarmLine" hidden></div>
-        <div class="patient-box"><div class="who" id="patWho"></div><div class="obs" id="patObs"></div></div>
-      </div>
-      <div class="panel" id="cprPanel" hidden>
-        <div class="panel-h"><span>Compressions</span><span id="cprInfo"></span></div>
-        <div class="cpr-pad">
-          <button class="btn primary" id="cprTap">Appuyer au rythme</button>
-          <div class="meter"><div class="track"><div class="needle" id="cprNeedle"></div></div><div class="lbl"><span>lent</span><span>100 à 120 par minute</span><span>rapide</span></div></div>
-        </div>
-      </div>
-    </div>
-    <div class="sim-right">
-      <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-        <div class="panel-h"><span>Actions</span><span id="crewFree"></span></div>
-        <div class="tabs" id="actTabs" role="tablist"></div>
-        <div class="actions-list" id="actList"></div>
-      </div>
-    </div>
-    <div class="sim-bottom">
-      <div class="panel" id="guidePanel"><div class="panel-h"><span>AURA</span><span id="guideRef"></span></div><div class="guide" id="guide"></div></div>
-      <div class="panel"><div class="panel-h"><span>Journal</span><span id="logCount"></span></div><div class="log" id="log" aria-live="polite"></div></div>
-    </div>
-    <div class="speech" id="speech" hidden></div>
-  </section>
-
-  <section id="usPanel" hidden role="dialog" aria-modal="true" aria-labelledby="usTitle">
-    <div class="us-sheet">
-      <div>
-        <h2 id="usTitle">Échographie</h2>
-        <p class="small-print" id="usHelp">Faites glisser la sonde sur le corps. Le petit trait indique le repère de la sonde.</p>
-        <div class="us-body"><canvas id="usBody" width="600" height="800"></canvas></div>
-        <div class="us-controls">
-          <span>Rotation</span><input type="range" id="usRot" min="-90" max="90" value="0"><span id="usRotV">0°</span>
-          <span>Inclinaison</span><input type="range" id="usTilt" min="-40" max="40" value="0"><span id="usTiltV">0°</span>
-          <span>Profondeur</span><input type="range" id="usDepth" min="8" max="20" value="15"><span id="usDepthV">15 cm</span>
-          <span>Gain</span><input type="range" id="usGain" min="-10" max="10" value="0"><span id="usGainV">0</span>
-        </div>
-      </div>
-      <div>
-        <div class="us-screen"><canvas id="usImage" width="640" height="480"></canvas><div class="us-overlay" id="usOverlay"></div></div>
-        <div class="row" style="margin-top:10px">
-          <button class="btn small" id="usBreath" aria-pressed="false">Inspiration bloquée</button>
-          <button class="btn small" id="usSnap">Enregistrer l'image</button>
-          <button class="btn small" id="usRead">Interpréter</button>
-          <button class="btn small primary" id="usClose">Fermer</button>
-        </div>
-        <div class="us-guide" id="usGuide"></div>
-        <div class="us-shots" id="usShots"></div>
-        <div id="usQuiz"></div>
+  <section id="trIntro" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="tiTitle">
+    <div class="sheet intro">
+      <div class="ti-img" id="tiImg"></div>
+      <div class="ti-body">
+        <p class="te-k">Simulation d'urgence</p>
+        <h2 id="tiTitle"></h2>
+        <p class="lead" id="tiText"></p>
+        <p class="ti-role" id="tiRole"></p>
+        <div class="te-chips" id="tiMeta"></div>
+        <ol class="ti-how">
+          <li><span class="n">1</span>Lis la consigne en bas de l'écran.</li>
+          <li><span class="n">2</span>Touche le point lumineux dans la scène.</li>
+          <li><span class="n">3</span>Fais glisser pour tourner autour, molette ou pincement pour zoomer.</li>
+        </ol>
+        <div class="actions"><button class="btn" id="tiBack">Retour</button><button class="btn primary" id="tiGo">Commencer</button></div>
       </div>
     </div>
   </section>
 
-  <section id="debrief" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="dbTitle">
-    <div class="sheet wide" id="dbBody"></div>
+  <section id="trHud" hidden>
+    <div class="tr-top"><div class="tr-dots" id="trDots"></div></div>
+    <div class="tr-hots" id="trHots"></div>
+    <div class="tr-hint" id="trHint">Fais glisser pour tourner autour de la scène</div>
+    <div class="tr-toast" id="trToast" hidden role="status"></div>
+    <div class="tr-bottom">
+      <div class="tr-widget" id="trWidget" hidden></div>
+      <div class="tr-card" id="trCard" aria-live="polite">
+        <div class="tr-picto" id="trPicto"></div>
+        <div class="tr-text"><span class="tr-n" id="trN"></span><h2 id="trSay"></h2><p id="trSub"></p></div>
+        <button class="tr-replay" id="trReplay" aria-label="Revoir le geste" title="Revoir le geste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="trEnd" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="teTitle">
+    <div class="sheet wide" id="teBody"></div>
   </section>
 
   <section id="about" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="abTitle">

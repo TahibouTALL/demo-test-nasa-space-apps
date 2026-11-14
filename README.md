@@ -36,12 +36,16 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
 - **Conférence de la semaine** : quinze minutes avec Sophie, à la voix ou par écrit, sur six sujets
   (alimentation, sommeil, exercice, élimination, charge de travail, moral). Le résumé est relu avant
   l'envoi, et la partie moral reste privée sans accord.
-- **Évasion** : quatre lieux en 3D (lac de montagne, plage, désert, la Terre vue de l'orbite) avec
-  respiration guidée, sur l'écran ou dans un casque de réalité virtuelle.
-- **Simulations** : quatre entraînements (arrêt cardiaque, allergie grave, fumée à bord, calcul rénal avec
-  échographie), lancés en une phrase ou un geste.
-- **Vidéos** : des capsules de prévention et de sécurité, et chaque jour la vidéo la plus utile pour
-  chacun (sortie prévue, sommeil en baisse, rappel de sécurité).
+- **Évasion** : sept lieux en 3D (la Terre vue de la vraie coupole de l'ISS, lac Rose, savane aux
+  baobabs, océan, lac de montagne, aurores boréales, désert de Lompoul) avec respiration guidée, sur
+  l'écran ou dans un casque. Le choix des lieux s'appuie sur les études menées en station polaire.
+- **Simulations** : douze entraînements dans l'intérieur réel de l'ISS (modèle 3D de la NASA), avec un
+  équipage en 3D : arrêt cardiaque, allergie grave, étouffement, feu à bord, dépressurisation, fuite
+  d'ammoniac, décompression après une sortie, calcul rénal avec échographie, coupure, brûlure, œil,
+  saignement de nez. Une consigne courte par étape, le geste montré en animation.
+- **Vidéos** : quatorze films de trois à quatre minutes, sous-titrés et sourcés (prévention et
+  sécurité), et chaque jour le film le plus utile pour chacun (sortie prévue, sommeil en baisse,
+  premiers jours, rappel de sécurité).
 - **Défis** : points, niveaux, badges et un objectif commun à l'équipage, pour le sport, les
   entraînements, l'évasion, les vidéos, le journal et les conférences.
 - **Espace de la médecin de bord** : équipage, propositions à valider, pharmacie et simulation Monte
@@ -104,6 +108,7 @@ redirige vers `docs/`.
 
 ```
 docs/                    site publié (généré par npm run build)
+docs/videos/             films publiés (faits par plateforme/tools/videos, gardés à la construction)
 plateforme/
   src/index.html         page, avec la liste des scripts insérée à la construction
   src/css/aura.css       système visuel
@@ -115,10 +120,12 @@ plateforme/
                          évasion et simulations, défis, espace de la médecin de bord
   kb/fiches.md           base de connaissances (export du document)
   tools/                 construction du site et des données des fiches
+  tools/videos/          fabrication des films (images 3D, schémas, voix, sous-titres)
   tests/                 scénarios du moteur et parcours dans le navigateur
 immersion/
   src/                   scènes 3D, simulations, réalité virtuelle
-  assets/                textures de la Terre, images, polices
+  assets/                textures de la Terre, modèles 3D (ISS de la NASA, équipage), images, polices
+  tools/                 préparation des modèles (NASA 3D Resources, MakeHuman)
   lib/three/             three.js 0.160.1 (licence MIT)
   build.py               assemble immersion/dist/, intégré ensuite dans docs/immersion/
 ```
@@ -132,7 +139,8 @@ température en apesanteur.
 
 ## Licences
 
-Code sous licence MIT. three.js : licence MIT (`immersion/lib/three/LICENSE`). Police Atkinson
+Code sous licence MIT. three.js : licence MIT (`immersion/lib/three/LICENSE`). Intérieur de l'ISS et
+scaphandre : NASA 3D Resources (domaine public). Équipage : MakeHuman (licence CC0). Police Atkinson
 Hyperlegible Next : licence SIL Open Font (`plateforme/src/fonts/OFL.txt`). qrcode-generator : licence
 MIT (en tête de `plateforme/src/js/lib/qrcode.js`).
 

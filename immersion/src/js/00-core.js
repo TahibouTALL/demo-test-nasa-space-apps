@@ -3,6 +3,11 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/addons/objects/Water.js';
 import { SimplexNoise } from 'three/addons/math/SimplexNoise.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 /* ================= utilitaires ================= */
 const $ = (s, r = document) => r.querySelector(s);
@@ -99,6 +104,7 @@ function disposeScene(scene) {
 const look = { yaw: 0, pitch: 0, fov: 70, enabled: true, pointers: new Map(), pinch0: 0, fov0: 70, moved: false, minPitch: -88 * DEG, maxPitch: 88 * DEG, drift: 0 };
 function setFov(f) { look.fov = clamp(f, 28, 90); }
 canvas.addEventListener('pointerdown', e => {
+  if (App.camMode === 'orbit') return;
   look.pointers.set(e.pointerId, [e.clientX, e.clientY]);
   try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* rien */ }
   canvas.classList.add('dragging');
@@ -129,7 +135,7 @@ canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', e => { e.preventDefault(); if (look.enabled) setFov(look.fov * Math.exp(e.deltaY * 0.0011)); }, { passive: false });
 window.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input, textarea, select')) return;
-  if (!look.enabled || App.view === 'menu') return;
+  if (!look.enabled || App.view === 'menu' || App.camMode === 'orbit') return;
   const s = 0.06;
   if (e.key === 'ArrowLeft') look.yaw += s;
   else if (e.key === 'ArrowRight') look.yaw -= s;
@@ -241,7 +247,7 @@ function noiseBand(ctx, out, kind, type, freq, q, gain) {
 
 /* ================= application ================= */
 const App = {
-  exp: null, view: 'menu', cache: {}, onResize: new Set(), frameHooks: new Set(), xrOK: false,
+  exp: null, view: 'menu', cache: {}, onResize: new Set(), frameHooks: new Set(), xrOK: false, camMode: 'look', orbitUpdate: null,
   hideHint() { const h = $('#lookHint'); if (h) h.style.opacity = '0'; },
   setTitle(t) { $('#topTitle').textContent = t || ''; },
   loading(on, txt) { $('#loading').hidden = !on; if (txt) $('#loadingTxt').textContent = txt; }
@@ -288,6 +294,7 @@ let elapsed = 0, lastFov = 0;
 const perf = { acc: 0, n: 0, max: Math.min(window.devicePixelRatio || 1, 1.75) };
 function adaptResolution(dt) {
   // résolution adaptée à la machine : on baisse si l'image ralentit, on remonte si elle est fluide
+  if (App.fixedRes) return;
   perf.acc += dt; perf.n++;
   if (perf.acc < 2) return;
   const avg = perf.acc / perf.n;
@@ -303,9 +310,12 @@ function frame() {
   elapsed += dt;
   adaptResolution(dt);
   if (!renderer.xr.isPresenting) {
-    if (App.view === 'menu') look.yaw += dt * 0.01;
-    if (look.fov !== lastFov) { camera.fov = look.fov; camera.updateProjectionMatrix(); lastFov = look.fov; }
-    camera.rotation.set(look.pitch, look.yaw, 0, 'YXZ');
+    if (App.camMode === 'orbit') { if (App.orbitUpdate) App.orbitUpdate(dt); }
+    else {
+      if (App.view === 'menu') look.yaw += dt * 0.01;
+      if (look.fov !== lastFov) { camera.fov = look.fov; camera.updateProjectionMatrix(); lastFov = look.fov; }
+      camera.rotation.set(look.pitch, look.yaw, 0, 'YXZ');
+    }
   }
   Sound.update(dt);
   App.frameHooks.forEach(f => { try { f(dt, elapsed); } catch (e) { console.error(e); App.frameHooks.delete(f); } });

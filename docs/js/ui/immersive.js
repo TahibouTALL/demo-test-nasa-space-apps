@@ -8,18 +8,32 @@
   const $ = A.$, esc = A.esc, icon = A.icon;
   const I = A.immersive = {};
 
+  // lieux d'évasion : choisis d'après les études sur l'isolement (pôle Sud, Antarctique, analogues spatiaux)
   I.SCENES = [
-    { key: 'earth', title: 'Terre vue de l\'ISS', text: 'La coupole de la station, la Terre qui défile à 7,7 km/s, de jour, au crépuscule et de nuit.', tags: ['Images NASA', 'Orbite réelle'], img: 'immersion/img/thumb-earth.jpg' },
-    { key: 'ocean', title: 'Océan au coucher du soleil', text: 'Au bout d\'une jetée, face à l\'Atlantique, pendant que le soleil descend.', tags: ['Vagues', 'Respiration guidée'], img: 'immersion/img/thumb-ocean.jpg' },
-    { key: 'lake', title: 'Lac de montagne au matin', text: 'Un lac calme entre des sommets enneigés, la brume qui monte de l\'eau.', tags: ['Chants d\'oiseaux', 'Brume'], img: 'immersion/img/thumb-lake.jpg' },
-    { key: 'desert', title: 'Désert de Lompoul la nuit', text: 'Sur la crête d\'une dune, sous la Voie lactée, un campement éclairé en contrebas.', tags: ['Ciel réel', 'Sénégal'], img: 'immersion/img/thumb-desert.jpg' }
+    { key: 'earth', title: 'Terre vue de la coupole', text: 'La vraie coupole de l\'ISS, d\'après le modèle 3D de la NASA, et la Terre qui défile sous ses sept hublots.', tags: ['Modèle NASA', 'Orbite réelle'], img: 'immersion/img/evasion/earth.webp' },
+    { key: 'lacrose', title: 'Lac Rose au coucher du soleil', text: 'Le lac Retba, près de Dakar : une eau rose, des tas de sel blanc et les pirogues des récolteurs.', tags: ['Sénégal', 'Coucher réel'], img: 'immersion/img/evasion/lacrose.webp' },
+    { key: 'savane', title: 'Savane aux baobabs', text: 'Fin d\'après-midi dans le Sine-Saloum : herbes dorées qui ondulent, baobabs, vautours qui planent.', tags: ['Sénégal', 'Vent, grillons'], img: 'immersion/img/evasion/savane.webp' },
+    { key: 'ocean', title: 'Océan au coucher du soleil', text: 'Au bout d\'une jetée, face à l\'Atlantique, pendant que le soleil descend.', tags: ['Vagues', 'Coucher réel'], img: 'immersion/img/evasion/ocean.webp' },
+    { key: 'lake', title: 'Lac de montagne au matin', text: 'Un lac calme entre des sommets enneigés, la brume qui monte de l\'eau, les oiseaux.', tags: ['Brume', 'Chants d\'oiseaux'], img: 'immersion/img/evasion/lake.webp' },
+    { key: 'aurore', title: 'Aurores boréales', text: 'Un lac sans vent sous des rideaux d\'aurore verts et pourpres, au pied de sommets enneigés.', tags: ['Nuit', 'Lac miroir'], img: 'immersion/img/evasion/aurore.webp' },
+    { key: 'desert', title: 'Désert de Lompoul la nuit', text: 'Sur la crête d\'une dune, sous la Voie lactée, un campement éclairé en contrebas.', tags: ['Ciel réel', 'Sénégal'], img: 'immersion/img/evasion/desert.webp' }
   ];
+  // simulations : décor réel de l'ISS (modèle NASA), équipage de démonstration, gestes des fiches AURA
   I.SIMS = [
-    { key: 'anaphylaxie', fiche: 'F-INF-08', title: 'Allergie grave', text: 'Rafael réagit à un antibiotique. Tu mènes les soins pendant que la médecin de bord est dans le sas.', dur: '15 à 30 min', img: 'immersion/img/thumb-anaphylaxie.jpg' },
-    { key: 'arret', fiche: 'F-CVN-07', title: 'Arrêt cardiaque en apesanteur', text: 'Lucas s\'effondre sur le tapis de course. Massage en apesanteur, défibrillateur, médicaments.', dur: '15 à 25 min', img: 'immersion/img/thumb-arret.jpg' },
-    { key: 'fumee', fiche: 'F-EXP-06', title: 'Inhalation de fumée', text: 'Une carte électronique prend feu. Masques, air de la cabine, et une saturation qui trompe.', dur: 'temps accéléré', img: 'immersion/img/thumb-fumee.jpg' },
-    { key: 'calcul', fiche: 'F-DIG-12', title: 'Calcul rénal et échographie', text: 'La médecin de bord a une colique néphrétique. Tu fais l\'échographie, guidé comme sur l\'ISS.', dur: 'échographie', img: 'immersion/img/thumb-calcul.jpg' }
+    { key: 'arret', fiche: 'F-CVN-07', title: 'Arrêt cardiaque en apesanteur', text: 'Lucas s\'effondre dans le laboratoire. Massage en flottant, table médicale, défibrillateur.', dur: '4 min', cat: 'Urgence vitale' },
+    { key: 'anaphylaxie', fiche: 'F-INF-08', title: 'Allergie grave', text: 'Rafael réagit à un antibiotique : plaques, lèvres qui gonflent, souffle qui siffle.', dur: '4 min', cat: 'Urgence vitale' },
+    { key: 'etouffement', fiche: null, title: 'Étouffement au repas', text: 'Une bouchée bloquée. Tapes dans le dos, compressions du ventre, et bien se caler.', dur: '3 min', cat: 'Urgence vitale' },
+    { key: 'incendie', fiche: 'F-EXP-06', title: 'Feu à bord', text: 'Une fumée sort d\'un rack du laboratoire. Alerter, se regrouper, agir : dans cet ordre.', dur: '4 min', cat: 'Urgence du vaisseau' },
+    { key: 'depress', fiche: null, title: 'Fuite d\'air\u00a0: dépressurisation', text: 'La pression baisse. Calculer le temps qui reste, isoler la fuite, ne jamais se couper du vaisseau.', dur: '3 min', cat: 'Urgence du vaisseau' },
+    { key: 'ammoniac', fiche: 'F-EXP-10', title: 'Fuite d\'ammoniac', text: 'Odeur piquante, yeux qui brûlent : masque, repli, écoutille fermée, puis rinçage.', dur: '3 min', cat: 'Urgence du vaisseau' },
+    { key: 'decompression', fiche: 'F-EXP-05', title: 'Après une sortie\u00a0: la décompression', text: 'Une douleur du coude deux heures après une sortie. Oxygène, sol, remise en pression.', dur: '3 min', cat: 'Sorties' },
+    { key: 'calcul', fiche: 'F-DIG-12', title: 'Calcul rénal et échographie', text: 'Une douleur du flanc qui vient par vagues. L\'échographie montre le calcul.', dur: '3 min', cat: 'Soins' },
+    { key: 'plaie', fiche: 'F-TRA-02', title: 'Coupure qui saigne', text: 'Une entaille à l\'avant-bras : en apesanteur, le sang forme des gouttes qui flottent.', dur: '3 min', cat: 'Soins' },
+    { key: 'brulure', fiche: 'F-EXP-07', title: 'Brûlure de la main', text: 'Une bulle d\'eau chaude sur la main. Refroidir quand l\'eau ne coule pas.', dur: '2 min', cat: 'Soins' },
+    { key: 'oeil', fiche: 'F-TET-01', title: 'Poussière dans l\'œil', text: 'Le plus fréquent des petits accidents en vol : ne pas frotter, rincer, examiner.', dur: '3 min', cat: 'Soins' },
+    { key: 'nez', fiche: 'F-APE-10', title: 'Saignement de nez', text: 'Air sec et sang qui monte à la tête : pincer, capter les gouttes, attendre.', dur: '2 min', cat: 'Soins' }
   ];
+  I.SIMS.forEach(x => { x.img = 'immersion/img/sims/' + x.key + '.webp'; });
 
   let vrSupported = null;
   I.vr = async () => {
@@ -93,7 +107,7 @@
   A.views.evasion = {
     render() {
       return '<div class="enter"><div class="screen-head"><button class="icon-btn back" data-back aria-label="Retour">' + icon('back') + '</button><div class="titles"><h1>Évasion</h1><p>Une pause loin de la station. Touche un lieu, tu y es.</p></div></div>' +
-        '<div class="scenes">' + I.SCENES.map(x => card(x, 'data-scene="' + x.key + '"', x.tags.concat(['10 min']))).join('') + '</div>' + vrLine('scene') + '</div>';
+        '<div class="scenes feature">' + I.SCENES.map(x => card(x, 'data-scene="' + x.key + '"', x.tags.concat(['10 min']))).join('') + '</div>' + vrLine('scene') + '</div>';
     },
     mount(node, params) {
       node.querySelector('[data-back]').onclick = () => A.go('accueil');
@@ -108,11 +122,11 @@
       const m = S.member(S.state.who);
       return '<div class="enter"><div class="screen-head"><button class="icon-btn back" data-back aria-label="Retour">' + icon('back') + '</button><div class="titles"><h1>Simulations</h1><p>Des urgences rares à répéter avant d\'en avoir besoin. Touche une carte, la simulation démarre.</p></div>' +
         '<label class="row small muted" style="flex:none"><button class="toggle" role="switch" id="simExam" aria-checked="false" aria-label="Mode examen"></button>Mode examen</label></div>' +
-        '<div class="scenes">' + I.SIMS.map(x => {
+        ['Urgence vitale', 'Urgence du vaisseau', 'Sorties', 'Soins'].map(cat => '<h2 class="simgroup">' + esc(cat) + '</h2><div class="scenes">' + I.SIMS.filter(x => x.cat === cat).map(x => {
           const r = m.sims[x.key];
           const best = r ? (r.wins ? 'réussie ' + A.plural(r.wins, 'fois', 'fois') : 'essayée ' + A.plural(r.runs, 'fois', 'fois')) : 'jamais faite';
-          return card(x, 'data-sim="' + x.key + '"', ['Fiche ' + x.fiche, x.dur, best]);
-        }).join('') + '</div>' + vrLine('sim') + '</div>';
+          return card(x, 'data-sim="' + x.key + '"', [x.fiche ? 'Fiche ' + x.fiche : 'Procédure du vaisseau', x.dur, best]);
+        }).join('') + '</div>').join('') + vrLine('sim') + '</div>';
     },
     mount(node) {
       node.querySelector('[data-back]').onclick = () => A.go('accueil');

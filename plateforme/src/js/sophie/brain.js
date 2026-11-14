@@ -40,17 +40,25 @@
 
   /* ---------------- vocabulaire des commandes ---------------- */
   const SCENES = [
-    ['earth', /\b(terre|iss|cupole|station|orbite|hublot|planete)\b/], ['ocean', /\b(ocean|mer|plage|coucher de soleil|vagues?|jetee|atlantique)\b/],
+    ['earth', /\b(terre|iss|cupole|coupole|station|orbite|hublot|planete)\b/], ['lacrose', /\b(lac rose|retba|sel|pirogues?)\b/],
+    ['savane', /\b(savane|baobabs?|sine|saloum|brousse)\b/], ['aurore', /\b(aurores?|boreales?|polaire)\b/],
+    ['ocean', /\b(ocean|mer|plage|coucher de soleil|vagues?|jetee|atlantique)\b/],
     ['lake', /\b(lac|montagnes?|foret|matin)\b/], ['desert', /\b(desert|lompoul|dunes?|etoiles|nuit etoilee|voie lactee|campement)\b/]
   ];
   const SIMS = [
     ['arret', /\b(arret cardiaque|massage cardiaque|reanimation|defibrillateur|cardiaque)\b/], ['anaphylaxie', /\b(allergie|anaphylax|adrenaline|choc allergique)\b/],
-    ['fumee', /\b(fumee|incendie|feu)\b/], ['calcul', /\b(calcul|rein|renal|colique|echographie|echo)\b/]
+    ['etouffement', /\b(etouff|s etrangle|fausse route|heimlich)\b/], ['incendie', /\b(fumee|incendie|feu)\b/],
+    ['depress', /\b(depressuris|fuite d air|pression cabine)\b/], ['ammoniac', /\b(ammoniac|toxique)\b/],
+    ['decompression', /\b(decompression|sortie|eva|scaphandre)\b/], ['calcul', /\b(calcul|rein|renal|colique|echographie|echo)\b/],
+    ['plaie', /\b(plaie|coupure|saigne|hemorragie)\b/], ['brulure', /\b(brulure|brule)\b/], ['oeil', /\b(oeil|poussiere|corps etranger)\b/],
+    ['nez', /\b(saignement de nez|nez qui saigne|epistaxis)\b/]
   ];
   const VIDEO_WORDS = [
     ['sommeil', /\b(sommeil|dormir|insomnie)\b/], ['dos', /\b(dos|colonne)\b/], ['os', /\b(os|osseuse|squelette)\b/], ['yeux', /\b(yeux|vision|vue|oeil)\b/],
+    ['muscles', /\b(muscles?|musculation|sport|exercice physique)\b/], ['arrivee', /\b(premiers jours|mal de l espace|nausee|arrivee)\b/], ['moral', /\b(moral|isolement|solitude|stress|famille)\b/],
     ['eau', /\b(boire|hydrat|eau)\b/], ['incendie', /\b(incendie|feu|fumee)\b/], ['depress', /\b(depressuris|pression|fuite d air)\b/],
-    ['ammoniac', /\b(ammoniac|toxique)\b/], ['eruption', /\b(eruption solaire|radiation|abri)\b/], ['sortie', /\b(sortie|eva|decompression|scaphandre)\b/]
+    ['ammoniac', /\b(ammoniac|toxique)\b/], ['eruption', /\b(eruption solaire|radiation|abri)\b/], ['sortie', /\b(sortie|eva|decompression|scaphandre)\b/],
+    ['arret', /\b(arret cardiaque|massage cardiaque|reanimation)\b/]
   ];
   const sceneIn = t => { const s = SCENES.find(([, re]) => re.test(t)); return s ? s[0] : null; };
   const simIn = t => { const s = SIMS.find(([, re]) => re.test(t)); return s ? s[0] : null; };

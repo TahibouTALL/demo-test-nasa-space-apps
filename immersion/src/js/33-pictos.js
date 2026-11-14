@@ -1,0 +1,50 @@
+/* ================= pictogrammes animés des consignes (SVG, 96 x 96) =================
+   Traits blancs, accent cyan, une seule animation lente par pictogramme. */
+const PICTO = {
+  look: '<circle cx="40" cy="44" r="20"/><path d="M54 58 74 78"/><path class="pk-breathe" d="M28 46c4-6 8-6 12 0s8 6 12 0"/>',
+  tap: '<path d="M22 70c0-16 12-26 26-26s26 10 26 26"/><circle cx="48" cy="28" r="12"/><g class="pk-tap"><path d="M20 38l6 6M76 38l-6 6"/><circle class="a" cx="17" cy="35" r="4"/><circle class="a" cx="79" cy="35" r="4"/></g>',
+  alarm: '<rect x="20" y="30" width="56" height="36" rx="8"/><rect class="a pk-blink" x="30" y="40" width="16" height="16" rx="3"/><rect x="52" y="40" width="16" height="16" rx="3"/><path d="M36 22l-4-6M60 22l4-6M48 20v-8"/>',
+  call: '<path d="M30 26a18 18 0 0 1 36 0v14"/><rect x="22" y="38" width="12" height="20" rx="4"/><rect x="62" y="38" width="12" height="20" rx="4"/><path d="M68 58c0 10-8 14-16 14"/><g class="pk-waves"><path d="M80 30c4 4 4 12 0 16"/><path d="M86 26c6 6 6 18 0 24"/></g>',
+  cpr: '<path d="M14 72h68"/><path d="M26 72c4-10 14-14 22-14s18 4 22 14"/><g class="pk-press"><rect class="a" x="38" y="34" width="20" height="10" rx="4"/><rect x="40" y="24" width="16" height="10" rx="4"/><path d="M48 12v10"/></g>',
+  legs: '<circle cx="48" cy="20" r="8"/><path d="M48 28v22M36 38h24"/><path class="pk-sway" d="M48 50c-14 4-20 14-14 24M48 50c14 4 20 14 14 24"/><rect class="a" x="38" y="36" width="20" height="8" rx="3"/>',
+  board: '<rect x="14" y="40" width="68" height="14" rx="5"/><g class="pk-strap"><path class="a-s" d="M28 34v26M48 34v26M68 34v26"/></g><circle cx="22" cy="47" r="3"/>',
+  pads: '<path d="M30 20c-8 10-10 30-6 56M66 20c8 10 10 30 6 56"/><rect class="a pk-pop" x="34" y="30" width="14" height="18" rx="3"/><rect class="a pk-pop2" x="52" y="50" width="14" height="18" rx="3"/>',
+  shock: '<path class="a pk-blink" d="M52 10 30 50h16l-6 36 26-46H50z"/><path d="M16 30l8 4M80 30l-8 4M16 66l8-4M80 66l-8-4"/>',
+  handoff: '<path d="M30 70V40c0-4 6-4 6 0v-8c0-4 6-4 6 0v-4c0-4 6-4 6 0v6c0-4 6-4 6 0v26c0 8-6 14-14 14h-2c-6 0-10-4-12-8z"/><path class="pk-blink" d="M70 26 86 42M86 26 70 42"/>',
+  handstand: '<path d="M14 80h68"/><rect x="22" y="70" width="52" height="8" rx="3"/><g class="pk-press"><path d="M48 66V40"/><circle cx="48" cy="34" r="6"/><path d="M40 66l8-6 8 6"/><path d="M48 28v-14l-8-6M48 14l8-6"/></g>',
+  pen: '<path d="M30 76c4-20 6-40 4-60M66 76c-4-20-6-40-4-60"/><g class="pk-inject"><rect class="a" x="58" y="26" width="10" height="34" rx="4" transform="rotate(30 63 43)"/></g>',
+  hold: '<circle cx="48" cy="48" r="28"/><path class="a-s pk-sweep" d="M48 20a28 28 0 1 1-28 28" /><path d="M48 32v16l10 8"/>',
+  oxygen: '<path d="M30 50c0-14 8-22 18-22s18 8 18 22-8 18-18 18-18-6-18-18z"/><path d="M48 68v14h18"/><g class="pk-rise"><circle class="a" cx="42" cy="46" r="3"/><circle class="a" cx="54" cy="52" r="2.5"/></g>',
+  mask: '<path d="M24 46c0-16 10-26 24-26s24 10 24 26-10 30-24 30-24-14-24-30z"/><path class="a-s" d="M32 44c4-8 28-8 32 0"/><circle cx="48" cy="62" r="6"/><g class="pk-rise"><path d="M48 76v10"/></g>',
+  hatch: '<rect x="18" y="18" width="60" height="60" rx="16"/><g class="pk-close"><rect class="a" x="24" y="24" width="48" height="48" rx="12"/></g>',
+  gauge: '<circle cx="48" cy="52" r="30"/><path d="M26 60a24 24 0 0 1 44 0" class="a-s"/><g class="pk-needle"><path d="M48 52 66 38"/></g><circle cx="48" cy="52" r="4"/>',
+  power: '<path d="M48 18v26"/><path d="M30 30a26 26 0 1 0 36 0"/><g class="pk-blink"><circle class="a" cx="48" cy="48" r="4"/></g>',
+  smoke: '<rect x="22" y="58" width="52" height="22" rx="4"/><g class="pk-rise"><path d="M38 52c-6-6 6-10 0-16s6-10 0-16"/><path d="M56 52c-6-6 6-10 0-16"/></g>',
+  extinguisher: '<rect x="26" y="34" width="20" height="46" rx="8"/><path d="M36 34v-8h12l10 6"/><g class="pk-spray"><path class="a-s" d="M62 34l16-8M62 34l18 0M62 34l16 8"/></g>',
+  analyzer: '<rect x="30" y="16" width="36" height="64" rx="8"/><rect class="a" x="36" y="24" width="24" height="16" rx="3"/><path class="pk-blink" d="M38 56l6 6 12-12"/>',
+  eye: '<path d="M14 48c10-16 22-22 34-22s24 6 34 22c-10 16-22 22-34 22S24 64 14 48z"/><circle cx="48" cy="48" r="10"/><g class="pk-drop"><path class="a" d="M70 14c4 6 6 9 6 12a6 6 0 0 1-12 0c0-3 2-6 6-12z"/></g>',
+  noRub: '<path d="M14 48c10-16 22-22 34-22s24 6 34 22c-10 16-22 22-34 22S24 64 14 48z"/><circle cx="48" cy="48" r="10"/><path class="pk-blink" d="M20 20l56 56" stroke-width="5"/>',
+  gauze: '<path d="M24 50h48"/><g class="pk-press"><rect class="a" x="30" y="30" width="36" height="14" rx="3"/><path d="M48 14v14"/></g><path d="M18 62c10 6 50 6 60 0"/>',
+  press: '<path d="M16 62c20-6 44-6 64 0"/><g class="pk-press"><path d="M34 44V26c0-3 5-3 5 0v-4c0-3 5-3 5 0v2c0-3 5-3 5 0v4c0-3 5-3 5 0v16c0 6-4 10-10 10h-2c-4 0-8-2-8-6z"/></g><circle class="a" cx="48" cy="58" r="4"/>',
+  bandage: '<rect x="20" y="40" width="56" height="18" rx="9"/><g class="pk-wrap"><path class="a-s" d="M30 34l10 30M44 34l10 30M58 34l10 30"/></g>',
+  glove: '<path d="M32 78V44c0-4 6-4 6 0V30c0-4 6-4 6 0V26c0-4 6-4 6 0v4c0-4 6-4 6 0v20l4-4c3-3 8 1 5 5L54 70c-2 4-6 8-12 8z" class="a-f"/>',
+  probe: '<rect x="40" y="14" width="16" height="38" rx="8"/><rect class="a" x="36" y="50" width="24" height="8" rx="3"/><g class="pk-waves"><path d="M34 66c8 6 20 6 28 0"/><path d="M28 74c12 8 28 8 40 0"/></g>',
+  gel: '<path d="M38 30h20l4 50H34z"/><path d="M44 30v-8h8v8"/><g class="pk-drop"><path class="a" d="M48 6c3 5 5 7 5 10a5 5 0 0 1-10 0c0-3 2-5 5-10z"/></g>',
+  stone: '<path d="M36 18c-14 6-20 22-16 38 4 18 20 26 32 20 8-4 6-14 0-18-6-4-6-12 0-16 8-6 6-22-16-24z"/><circle class="a pk-blink" cx="40" cy="50" r="5"/>',
+  suit: '<circle cx="48" cy="36" r="20"/><rect class="a" x="36" y="28" width="24" height="14" rx="6"/><path d="M28 56c-6 6-8 16-8 24h56c0-8-2-18-8-24"/>',
+  drink: '<rect x="30" y="30" width="36" height="48" rx="10"/><path d="M48 30V14h10"/><g class="pk-rise"><path class="a-s" d="M38 66h20M40 56h16"/></g>',
+  legsup: '<path d="M12 72h72"/><circle cx="20" cy="62" r="6"/><path d="M26 64h26"/><g class="pk-lift"><path d="M52 64l22-18"/></g>',
+  stand: '<g class="pk-rise2"><circle cx="48" cy="20" r="7"/><path d="M48 27v26M40 36h16M48 53l-8 22M48 53l8 22"/></g><path class="a-s" d="M18 84h60"/>',
+  nose: '<path d="M44 20c0 18-10 28-10 38 0 6 6 8 14 8s14-2 14-8c0-10-10-20-10-38"/><g class="pk-pinch"><path class="a-s" d="M30 56l8-2M66 56l-8-2"/></g>',
+  cool: '<path d="M20 64c0-10 8-18 18-18h24c8 0 14 6 14 14v4z"/><g class="pk-drop"><path class="a" d="M46 14c4 6 6 9 6 12a6 6 0 0 1-12 0c0-3 2-6 6-12z"/></g>',
+  question: '<circle cx="48" cy="48" r="32"/><path d="M38 38c0-6 4-10 10-10s10 4 10 10c0 8-10 8-10 16"/><circle class="a pk-blink" cx="48" cy="66" r="3"/>',
+  check: '<circle cx="48" cy="48" r="32"/><path class="a-s" d="M34 49l9 9 19-20"/>',
+  clock: '<circle cx="48" cy="48" r="30"/><g class="pk-spin"><path d="M48 48V28"/></g><path d="M48 48h14"/>',
+  search: '<circle cx="42" cy="42" r="18"/><path d="M55 55l18 18"/><path class="a-s pk-blink" d="M36 42h12"/>',
+  arm: '<path d="M14 54c14-6 30-8 48-4 6 2 14 2 20 0"/><path d="M14 64c14-4 30-4 48 0 6 2 14 2 20 0"/><path class="a pk-blink" d="M40 52l8 10"/>',
+  pressure: '<path d="M48 16v40"/><path d="M34 44l14 14 14-14"/><rect x="22" y="64" width="52" height="14" rx="6" class="a-f"/>'
+};
+function picto(key) {
+  const p = PICTO[key] || PICTO.question;
+  return `<svg viewBox="0 0 96 96" class="picto" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}

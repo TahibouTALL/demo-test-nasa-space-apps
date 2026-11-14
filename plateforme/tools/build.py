@@ -39,10 +39,18 @@ print(r.stdout.strip())
 if r.returncode:
     sys.exit('Immersion :\n' + (r.stderr or r.stdout)[:2000])
 
-# 3) assemblage
-if os.path.isdir(OUT):
-    shutil.rmtree(OUT)
-os.makedirs(OUT)
+# 3) assemblage. Les films (docs/videos) sont produits à part par tools/videos et ne sont
+# jamais recopiés : on vide docs/ sans y toucher.
+KEEP = {'videos'}
+os.makedirs(OUT, exist_ok=True)
+for e in os.listdir(OUT):
+    if e in KEEP:
+        continue
+    p = os.path.join(OUT, e)
+    if os.path.isdir(p) and not os.path.islink(p):
+        shutil.rmtree(p)
+    else:
+        os.remove(p)
 shutil.copytree(os.path.join(SRC, 'js'), os.path.join(OUT, 'js'))
 shutil.copytree(os.path.join(SRC, 'css'), os.path.join(OUT, 'css'))
 shutil.copytree(os.path.join(SRC, 'assets'), os.path.join(OUT, 'assets'))
