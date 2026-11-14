@@ -46,9 +46,9 @@
     ['lake', /\b(lac|montagnes?|foret|matin)\b/], ['desert', /\b(desert|lompoul|dunes?|etoiles|nuit etoilee|voie lactee|campement)\b/]
   ];
   const SIMS = [
-    ['arret', /\b(arret cardiaque|massage cardiaque|reanimation|defibrillateur|cardiaque)\b/], ['anaphylaxie', /\b(allergie|anaphylax|adrenaline|choc allergique)\b/],
-    ['etouffement', /\b(etouff|s etrangle|fausse route|heimlich)\b/], ['incendie', /\b(fumee|incendie|feu)\b/],
-    ['depress', /\b(depressuris|fuite d air|pression cabine)\b/], ['ammoniac', /\b(ammoniac|toxique)\b/],
+    ['arret', /\b(arret cardiaque|massage cardiaque|reanimation|defibrillateur|cardiaque)\b/], ['anaphylaxie', /\b(allergie|anaphylax\w*|adrenaline|choc allergique)\b/],
+    ['etouffement', /\b(etouff\w*|s etrangle|fausse route|heimlich)\b/], ['incendie', /\b(fumee|incendie|feu)\b/],
+    ['depress', /\b(depressuris\w*|fuite d air|pression cabine)\b/], ['ammoniac', /\b(ammoniac|toxique)\b/],
     ['decompression', /\b(decompression|sortie|eva|scaphandre)\b/], ['calcul', /\b(calcul|rein|renal|colique|echographie|echo)\b/],
     ['plaie', /\b(plaie|coupure|saigne|hemorragie)\b/], ['brulure', /\b(brulure|brule)\b/], ['oeil', /\b(oeil|poussiere|corps etranger)\b/],
     ['nez', /\b(saignement de nez|nez qui saigne|epistaxis)\b/]
@@ -56,7 +56,7 @@
   const VIDEO_WORDS = [
     ['sommeil', /\b(sommeil|dormir|insomnie)\b/], ['dos', /\b(dos|colonne)\b/], ['os', /\b(os|osseuse|squelette)\b/], ['yeux', /\b(yeux|vision|vue|oeil)\b/],
     ['muscles', /\b(muscles?|musculation|sport|exercice physique)\b/], ['arrivee', /\b(premiers jours|mal de l espace|nausee|arrivee)\b/], ['moral', /\b(moral|isolement|solitude|stress|famille)\b/],
-    ['eau', /\b(boire|hydrat|eau)\b/], ['incendie', /\b(incendie|feu|fumee)\b/], ['depress', /\b(depressuris|pression|fuite d air)\b/],
+    ['eau', /\b(boire|hydrat\w*|eau)\b/], ['incendie', /\b(incendie|feu|fumee)\b/], ['depress', /\b(depressuris\w*|pression|fuite d air)\b/],
     ['ammoniac', /\b(ammoniac|toxique)\b/], ['eruption', /\b(eruption solaire|radiation|abri)\b/], ['sortie', /\b(sortie|eva|decompression|scaphandre)\b/],
     ['arret', /\b(arret cardiaque|massage cardiaque|reanimation)\b/]
   ];
@@ -265,7 +265,10 @@
     // 1. signes d'alarme, dans toutes les saisies (R-URG) ; l'écran d'urgence parle lui-même
     const found = LIB.findFacts(raw, pats);
     const urg = (VOCAB.URGENCES || []).filter(u => u.facts.some(c => found.facts.some(f => f.code === c && !f.neg)));
-    if (urg.length && !found.info) { listening = null; return { say: 'Je m\'en occupe tout de suite. Keiko est prévenue.', emotion: 'concerned', action: { type: 'emergency', urg: urg[0], text: raw } }; }
+    // « lance la simulation d'étouffement » demande un entraînement, pas de l'aide : seule une
+    // demande explicite de simulation sur un sujet précis passe avant le contrôle d'urgence
+    const training = /\b(simulation|scenario)s? (d |de |du |des |sur )/.test(t) && !/\bpas (une|un|de) (simulation|scenario)/.test(t) && !!simIn(t);
+    if (urg.length && !found.info && !training) { listening = null; return { say: 'Je m\'en occupe tout de suite. Keiko est prévenue.', emotion: 'concerned', action: { type: 'emergency', urg: urg[0], text: raw } }; }
 
     // l'astronaute se confie (après « En parler ») : on écoute, sans orienter ni conseiller
     if (listening && Date.now() - listening.t < 10 * 60000 && !/^(stop|arrete|merci|non|c est tout|rien|ca va)\b/.test(t)) {

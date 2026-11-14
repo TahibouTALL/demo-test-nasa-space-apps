@@ -24,6 +24,9 @@ Modules utilisés : laboratoire Destiny (`iss-lab`), nœuds Unity, Harmony et Tr
 Dans la coupole, les caches de hublots (`Cupola_WC_*`) et les vitres sont masqués au chargement
 (`buildNasaCupola`, dans `src/js/20-earth.js`).
 
+Le scaphandre EMU vient du même dépôt. Son export déclare une transmission sur tous ses
+matériaux, ce qui le rend invisible dans three.js : `node notrans.mjs emu.glb emu.glb` la retire.
+
 ## Équipage (MakeHuman, licence CC0)
 
 `crew.py` construit les quatre équipiers (Lucas, Rafael, Aminata, Keiko) à partir des données
