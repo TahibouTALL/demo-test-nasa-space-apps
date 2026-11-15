@@ -43,7 +43,7 @@
     const p = S.profile(id);
     const first = A.first(p.name);
     const hello = A.greet(S.minute()) + ' ' + first + '.';
-    const lvls = ['temp', 'hr', 'spo2'].map(k => S.lastMeasure(id, k)).filter(x => x && x.d === S.day());
+    const lvls = ['temp', 'hr', 'spo2', 'sys', 'dia'].map(k => S.lastMeasure(id, k)).filter(x => x && x.d === S.day());
     // une seule chose à dire, la plus utile : une mesure à regarder, sinon le prochain rendez-vous
     if (lvls.some(x => x.lvl !== 'normal')) return hello + ' Une de tes mesures de ce matin est à regarder.';
     const nx = A.rappels.next(id);
@@ -134,21 +134,28 @@
     temp: { label: 'Température', icon: 'temp', unit: '°C', d: 1, color: '#FFB38A' },
     hr: { label: 'Pouls au repos', icon: 'pulse', unit: '/min', d: 0, color: '#FF8FA3' },
     spo2: { label: 'Saturation', icon: 'drop', unit: '%', d: 0, color: '#79D8FF' },
+    bp: { label: 'Tension', title: 'Tension artérielle', icon: 'gauge', unit: 'mmHg', d: 0, color: '#FF9FCB', color2: '#C9A6FF' },
+    glu: { label: 'Glycémie', title: 'Glycémie à jeun', icon: 'glucose', unit: 'mg/dL', d: 0, color: '#FFD27A' },
     sleep: { label: 'Sommeil', icon: 'moon', unit: 'h', d: 1, color: '#B3A6FF' }
   };
-  function spark(arr, color, ref) {
-    const vals = arr.map(x => x.v);
-    if (vals.length < 2) return '';
-    let lo = Math.min(...vals), hi = Math.max(...vals);
-    if (ref) { lo = Math.min(lo, ref.lo); hi = Math.max(hi, ref.hi); }
+  // petite courbe d'une ou de plusieurs séries, sur la même échelle, avec la plage normale de chacune
+  function spark(arr, color, ref, more) {
+    const list = [{ arr, color, ref }].concat(more || []).filter(x => x.arr.length >= 2);
+    if (!list.length) return '';
+    const all = list.flatMap(x => x.arr.map(y => y.v).concat(x.ref ? [x.ref.lo, x.ref.hi] : []));
+    let lo = Math.min(...all), hi = Math.max(...all);
     const pad = (hi - lo) * 0.15 || 1;
     lo -= pad; hi += pad;
     const W = 200, H = 38;
-    const X = i => (i / (vals.length - 1)) * W, Y = v => H - ((v - lo) / (hi - lo)) * H;
-    const d = vals.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ');
-    const band = ref ? '<rect x="0" y="' + Y(ref.hi).toFixed(1) + '" width="' + W + '" height="' + Math.max(1, Y(ref.lo) - Y(ref.hi)).toFixed(1) + '" fill="' + color + '" opacity=".1" rx="4"/>' : '';
-    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + band + '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="' + X(vals.length - 1) + '" cy="' + Y(vals[vals.length - 1]).toFixed(1) + '" r="3.5" fill="' + color + '"/></svg>';
+    const Y = v => H - ((v - lo) / (hi - lo)) * H;
+    return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + list.map(x => {
+      const n = x.arr.length, X = i => (i / (n - 1)) * W;
+      const d = x.arr.map((y, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(y.v).toFixed(1)).join(' ');
+      const band = x.ref ? '<rect x="0" y="' + Y(x.ref.hi).toFixed(1) + '" width="' + W + '" height="' + Math.max(1, Y(x.ref.lo) - Y(x.ref.hi)).toFixed(1) + '" fill="' + x.color + '" opacity=".1" rx="4"/>' : '';
+      return band + '<path d="' + d + '" fill="none" stroke="' + x.color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="' + X(n - 1) + '" cy="' + Y(x.arr[n - 1].v).toFixed(1) + '" r="3.5" fill="' + x.color + '"/>';
+    }).join('') + '</svg>';
   }
+  const worst = (...ls) => ls.filter(Boolean).reduce((a, l) => (l === 'urgence' || (l === 'vigilance' && a === 'normal')) ? l : a, 'normal');
   function levelWord(l) { return l === 'normal' ? ['ok', 'Normal pour toi'] : l === 'vigilance' ? ['warn', 'À reprendre'] : ['bad', 'À regarder vite']; }
 
   A.health = {
@@ -158,7 +165,10 @@
         const l = S.lastMeasure(id, k);
         if (l) parts.push(MET[k].label.toLowerCase().replace(' au repos', '') + ' ' + A.num(l.v, MET[k].d) + (k === 'temp' ? ' degrés' : k === 'spo2' ? ' %' : ''));
       });
-      const bad = ['temp', 'hr', 'spo2'].some(k => { const l = S.lastMeasure(id, k); return l && l.lvl !== 'normal'; });
+      const ls = S.lastMeasure(id, 'sys'), ld = S.lastMeasure(id, 'dia'), lg = S.lastMeasure(id, 'glu');
+      if (ls && ld) parts.push('tension ' + ls.v + ' sur ' + ld.v);
+      if (lg) parts.push('glycémie ' + lg.v);
+      const bad = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].some(k => { const l = S.lastMeasure(id, k); return l && l.lvl !== 'normal'; });
       return 'Dernières mesures : ' + parts.join(', ') + '. ' + (bad ? 'Une valeur est à regarder.' : 'Tout est normal pour toi.');
     }
   };
@@ -167,14 +177,26 @@
     render() {
       const id = S.state.who, m = S.member(id);
       const last = k => S.lastMeasure(id, k);
-      const anyBad = ['temp', 'hr', 'spo2'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
+      const anyBad = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
       const conf = S.confDue(id);
-      const vit = ['temp', 'hr', 'spo2', 'sleep'].map(k => {
+      const tile = (k, value, lv, l, sp) => '<button class="vital" data-detail="' + k + '"><span class="k">' + icon(MET[k].icon) + MET[k].label + '</span><span class="v">' + value + '<small>' + MET[k].unit + '</small></span><span class="s"><i class="dot ' + (lv[0] === 'ok' ? '' : lv[0]) + '"></i>' + lv[1] + (l ? ' · ' + A.dayLabel(l.d, S.day()) : '') + '</span>' + sp + '</button>';
+      const vit = ['temp', 'hr', 'spo2', 'bp', 'glu', 'sleep'].map(k => {
+        if (k === 'bp') {
+          const as = m.measures.sys.slice(-14), ad = m.measures.dia.slice(-14);
+          const ls = as[as.length - 1], ld = ad[ad.length - 1];
+          return tile(k, ls && ld ? ls.v + '/' + ld.v : '·', levelWord(worst(ls && ls.lvl, ld && ld.lvl)), ls, spark(as, MET.bp.color, S.reference(id, 'sys'), [{ arr: ad, color: MET.bp.color2, ref: S.reference(id, 'dia') }]));
+        }
+        if (k === 'glu') {
+          const arr = m.measures.glu.slice(-8), l = arr[arr.length - 1];
+          const late = !l || S.day() - l.d >= 7;
+          const lv = late && (!l || l.lvl === 'normal') ? ['warn', 'À faire cette semaine'] : levelWord(l.lvl);
+          return tile(k, l ? A.num(l.v, 0) : '·', lv, l, spark(arr, MET.glu.color, S.reference(id, 'glu')));
+        }
         const arr = m.measures[k].slice(-14);
         const l = arr[arr.length - 1];
         const ref = k !== 'sleep' ? S.reference(id, k) : null;
         const lv = k === 'sleep' ? (l && l.v < 6 ? ['warn', 'Un peu court'] : ['ok', 'Reposant']) : levelWord(l ? l.lvl : 'normal');
-        return '<button class="vital" data-detail="' + k + '"><span class="k">' + icon(MET[k].icon) + MET[k].label + '</span><span class="v">' + (l ? A.num(l.v, MET[k].d) : '·') + '<small>' + MET[k].unit + '</small></span><span class="s"><i class="dot ' + (lv[0] === 'ok' ? '' : lv[0]) + '"></i>' + lv[1] + (l ? ' · ' + A.dayLabel(l.d, S.day()) : '') + '</span>' + spark(arr, MET[k].color, ref) + '</button>';
+        return tile(k, l ? A.num(l.v, MET[k].d) : '·', lv, l, spark(arr, MET[k].color, ref));
       }).join('');
       const tr = S.state.validations.filter(v => v.who === id).slice(0, 3);
       return '<div class="enter">' +
@@ -200,70 +222,128 @@
 
   function detailSheet(k) {
     const id = S.state.who, m = S.member(id);
-    const arr = m.measures[k].slice(-30);
-    const ref = k !== 'sleep' ? S.reference(id, k) : null;
+    const series = k === 'bp' ? [['sys', MET.bp.color, 'systolique'], ['dia', MET.bp.color2, 'diastolique']] : [[k, MET[k].color, '']];
+    const data = series.map(([mm, col, name]) => ({ mm, col, name, arr: m.measures[mm].slice(k === 'glu' ? -12 : -30), ref: mm !== 'sleep' ? S.reference(id, mm) : null }));
     const W = 560, H = 200;
-    const vals = arr.map(x => x.v);
-    let lo = Math.min(...vals), hi = Math.max(...vals);
-    if (ref) { lo = Math.min(lo, ref.lo); hi = Math.max(hi, ref.hi); }
+    const all = data.flatMap(x => x.arr.map(y => y.v).concat(x.ref ? [x.ref.lo, x.ref.hi] : []));
+    let lo = Math.min(...all), hi = Math.max(...all);
     const pad = (hi - lo) * 0.2 || 1; lo -= pad; hi += pad;
-    const X = i => 30 + (i / Math.max(1, vals.length - 1)) * (W - 40), Y = v => H - 20 - ((v - lo) / (hi - lo)) * (H - 40);
-    const path = vals.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join(' ');
-    const band = ref ? '<rect x="30" y="' + Y(ref.hi).toFixed(1) + '" width="' + (W - 40) + '" height="' + (Y(ref.lo) - Y(ref.hi)).toFixed(1) + '" fill="' + MET[k].color + '" opacity=".1" rx="6"/><text x="' + (W - 12) + '" y="' + (Y(ref.hi) - 6).toFixed(1) + '" fill="#8C95C2" font-size="11" text-anchor="end">ta plage normale</text>' : '';
-    const dots = arr.map((x, i) => '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(x.v).toFixed(1) + '" r="3" fill="' + (x.lvl && x.lvl !== 'normal' ? '#FFB65C' : MET[k].color) + '"/>').join('');
-    const explain = k === 'temp' ? 'En apesanteur, la température du corps monte d\'environ 1 °C en deux à trois mois (Stahn, 2017). Ta plage normale en tient compte, avec ta référence d\'avant le départ.' :
-      k === 'hr' ? 'Ton pouls au repos est comparé à ta propre référence, pas à une moyenne. Un effort ou un stress récent est pris en compte.' :
-      k === 'spo2' ? 'Une saturation basse fait d\'abord vérifier le capteur et l\'oxygène de la cabine, puis le corps. En dessous de 90 %, c\'est toujours une alerte.' :
-      'Environ 6 heures par nuit, c\'est la moyenne en mission. Un sommeil court plusieurs nuits de suite se rattrape mieux en en parlant tôt.';
-    A.sheet(MET[k].label, '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + band + '<path d="' + path + '" fill="none" stroke="' + MET[k].color + '" stroke-width="2.4" stroke-linejoin="round"/>' + dots + '<text x="30" y="' + (H - 4) + '" fill="#8C95C2" font-size="11">jour ' + arr[0].d + '</text><text x="' + (W - 10) + '" y="' + (H - 4) + '" fill="#8C95C2" font-size="11" text-anchor="end">aujourd\'hui</text></svg><p class="muted" style="margin-top:14px">' + explain + '</p>' + (k !== 'sleep' ? '<div class="row" style="margin-top:18px"><button class="btn primary" id="dMeasure">' + icon('plus') + 'Prendre une mesure</button></div>' : ''), { wide: true });
+    const n = Math.max(...data.map(x => x.arr.length));
+    const X = i => 30 + (i / Math.max(1, n - 1)) * (W - 40), Y = v => H - 20 - ((v - lo) / (hi - lo)) * (H - 40);
+    let svg = data.map(x => x.ref ? '<rect x="30" y="' + Y(x.ref.hi).toFixed(1) + '" width="' + (W - 40) + '" height="' + Math.max(1, Y(x.ref.lo) - Y(x.ref.hi)).toFixed(1) + '" fill="' + x.col + '" opacity=".1" rx="6"/>' : '').join('');
+    data.forEach(x => {
+      const off = n - x.arr.length;
+      svg += '<path d="' + x.arr.map((y, i) => (i ? 'L' : 'M') + X(i + off).toFixed(1) + ' ' + Y(y.v).toFixed(1)).join(' ') + '" fill="none" stroke="' + x.col + '" stroke-width="2.4" stroke-linejoin="round"/>';
+      svg += x.arr.map((y, i) => '<circle cx="' + X(i + off).toFixed(1) + '" cy="' + Y(y.v).toFixed(1) + '" r="3" fill="' + (y.lvl && y.lvl !== 'normal' ? '#FFB65C' : x.col) + '"/>').join('');
+    });
+    if (data.length > 1) svg += data.map((x, i) => '<text x="' + (W - 12) + '" y="' + (14 + i * 15) + '" fill="' + x.col + '" font-size="11" text-anchor="end">' + x.name + '</text>').join('');
+    else if (data[0].ref) svg += '<text x="' + (W - 12) + '" y="' + (Y(data[0].ref.hi) - 6).toFixed(1) + '" fill="#8C95C2" font-size="11" text-anchor="end">ta plage normale</text>';
+    const d0 = data[0].arr.length ? data[0].arr[0].d : S.day();
+    svg += '<text x="30" y="' + (H - 4) + '" fill="#8C95C2" font-size="11">jour ' + d0 + '</text><text x="' + (W - 10) + '" y="' + (H - 4) + '" fill="#8C95C2" font-size="11" text-anchor="end">aujourd\'hui</text>';
+    const explain = {
+      temp: 'En apesanteur, la température du corps monte d\'environ 1 °C en deux à trois mois (Stahn, 2017). Ta plage normale en tient compte, avec ta référence d\'avant le départ.',
+      hr: 'Ton pouls au repos est comparé à ta propre référence, pas à une moyenne. Un effort ou un stress récent est pris en compte.',
+      spo2: 'Une saturation basse fait d\'abord vérifier le capteur et l\'oxygène de la cabine, puis le corps. En dessous de 90 %, c\'est toujours une alerte.',
+      bp: 'En apesanteur, les liquides remontent vers le haut du corps et les vaisseaux se détendent : la tension baisse d\'environ 8 à 10 mmHg (Norsk, 2015). Ta plage normale en tient compte, avec ta référence d\'avant le départ. Au-delà de 180/120, c\'est toujours une alerte.',
+      glu: 'À jeun, une fois par semaine. En vol, le corps peut devenir moins sensible à l\'insuline (Hughson, 2016) : une hausse lente, semaine après semaine, compte plus qu\'une valeur isolée. Sous 54 mg/dL, c\'est une hypoglycémie : du sucre rapide tout de suite.',
+      sleep: 'Environ 6 heures par nuit, c\'est la moyenne en mission. Un sommeil court plusieurs nuits de suite se rattrape mieux en en parlant tôt.'
+    }[k];
+    A.sheet(MET[k].title || MET[k].label, '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + svg + '</svg><p class="muted" style="margin-top:14px">' + explain + '</p>' + (k !== 'sleep' ? '<div class="row" style="margin-top:18px"><button class="btn primary" id="dMeasure">' + icon('plus') + 'Prendre une mesure</button></div>' : ''), { wide: true });
     const b = $('#dMeasure');
     if (b) b.onclick = () => { A.closeSheet(); measureSheet(k); };
   }
 
+  // la mesure : un conseil pour bien la prendre, la valeur, ce qui s'est passé juste avant
+  const SEG = ['temp', 'hr', 'spo2', 'bp', 'glu'];
+  const PARTS = k => k === 'bp' ? ['sys', 'dia'] : [k];
+  const DEF = { temp: 37.2, hr: 62, spo2: 98, sys: 112, dia: 70, glu: 90 };
+  const HINT = {
+    temp: 'Le thermomètre sous la langue, la bouche fermée, pendant une minute.',
+    hr: 'Au repos, assis depuis cinq minutes.',
+    spo2: 'Le capteur au bout du doigt, la main immobile et bien chaude.',
+    bp: 'Assis depuis cinq minutes, le bras posé à hauteur du cœur, sans parler.',
+    glu: 'À jeun, le matin, une fois par semaine : une goutte de sang au bout du doigt.'
+  };
+  const CTXL = { effort: 'J\'ai fait du sport', stress: 'J\'ai été stressé', antipyretique: 'J\'ai pris un médicament contre la fièvre', repas: 'J\'ai mangé ou bu sucré' };
+  const AGAIN = { temp: 'Reprends cette mesure dans deux heures.', hr: 'Reprends-la après dix minutes de repos.', spo2: 'Vérifie le capteur et reprends-la.', bp: 'Reprends-la après cinq minutes assis au calme.', glu: 'Reprends-la demain matin, à jeun.' };
+  // un bouton qu'on garde appuyé fait défiler la valeur
+  function hold(btn, fn) {
+    let t1 = null, t2 = null;
+    const stop = () => { clearTimeout(t1); clearInterval(t2); };
+    btn.addEventListener('pointerdown', e => { e.preventDefault(); fn(); stop(); t1 = setTimeout(() => { t2 = setInterval(fn, 70); }, 380); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+    btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+  }
+
   function measureSheet(metric) {
     const id = S.state.who;
-    let k = metric || 'temp';
-    const cfg = () => DATA.metrics[k];
-    const start = () => { const l = S.lastMeasure(id, k); return l ? l.v : (k === 'temp' ? 37.2 : k === 'hr' ? 62 : 98); };
-    let val = start();
-    const ctx = { effort: false, stress: false, antipyretique: false };
+    let k = SEG.includes(metric) ? metric : (metric === 'sys' || metric === 'dia') ? 'bp' : 'temp';
+    let vals = {}, ctx = {};
     const sh = A.sheet('Prendre une mesure',
-      '<div class="stack-lg"><div class="seg" role="group" aria-label="Mesure" id="mSeg">' + ['temp', 'hr', 'spo2'].map(x => '<button data-k="' + x + '" aria-pressed="' + (x === k) + '">' + MET[x].label + '</button>').join('') + '</div>' +
-      '<div class="stepper"><button class="icon-btn" id="mMinus" aria-label="Moins">' + icon('minus') + '</button><div class="val" id="mVal" aria-live="polite"></div><button class="icon-btn" id="mPlus" aria-label="Plus">' + icon('plus') + '</button></div>' +
-      '<div><p class="muted small" style="margin-bottom:10px">Dans l\'heure qui précède :</p><div class="row wrap" id="mCtx">' +
-      [['effort', 'J\'ai fait du sport'], ['stress', 'J\'ai été stressé'], ['antipyretique', 'J\'ai pris un médicament contre la fièvre']].map(([c, l]) => '<button class="chip" data-c="' + c + '" aria-pressed="false">' + l + '</button>').join('') + '</div></div>' +
-      '<div id="mRes"></div><button class="btn primary big block" id="mSave">' + icon('check') + 'Enregistrer</button></div>');
-    const paint = () => { sh.querySelector('#mVal').innerHTML = A.num(val, cfg().decimals) + '<small>' + cfg().unit + '</small>'; };
-    paint();
-    sh.querySelectorAll('#mSeg button').forEach(b => b.onclick = () => { k = b.dataset.k; val = start(); sh.querySelectorAll('#mSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); paint(); });
-    sh.querySelector('#mMinus').onclick = () => { val = +(val - cfg().step).toFixed(cfg().decimals); paint(); };
-    sh.querySelector('#mPlus').onclick = () => { val = +(val + cfg().step).toFixed(cfg().decimals); paint(); };
-    sh.querySelectorAll('#mCtx [data-c]').forEach(b => b.onclick = () => { ctx[b.dataset.c] = !ctx[b.dataset.c]; b.setAttribute('aria-pressed', ctx[b.dataset.c]); });
-    sh.querySelector('#mSave').onclick = () => {
+      '<div class="stack-lg"><div class="seg" role="group" aria-label="Mesure" id="mSeg">' + SEG.map(x => '<button data-k="' + x + '" aria-pressed="' + (x === k) + '">' + MET[x].label + '</button>').join('') + '</div>' +
+      '<p class="m-hint" id="mHint"></p><div id="mSteps"></div>' +
+      '<div id="mCtxBox"><p class="muted small" style="margin-bottom:10px">Juste avant la mesure :</p><div class="row wrap" id="mCtx"></div></div>' +
+      '<div id="mRes"></div><div class="row" id="mAct"></div></div>');
+    const paint = () => PARTS(k).forEach(mm => { const c = DATA.metrics[mm]; sh.querySelector('[data-val="' + mm + '"]').innerHTML = A.num(vals[mm], c.decimals) + '<small>' + c.unit + '</small>'; });
+    const bump = (mm, dir) => { const c = DATA.metrics[mm]; vals[mm] = +A.clamp(vals[mm] + dir * c.step, c.plausible.min, c.plausible.max).toFixed(c.decimals); paint(); };
+    const draw = () => {
+      const parts = PARTS(k);
+      vals = {}; ctx = {};
+      parts.forEach(mm => { const l = S.lastMeasure(id, mm); vals[mm] = l ? l.v : DEF[mm]; });
+      sh.querySelector('#mHint').innerHTML = icon('info') + '<span>' + esc(HINT[k]) + '</span>';
+      sh.querySelector('#mSteps').innerHTML = parts.map(mm => (parts.length > 1 ? '<p class="m-lab">' + (mm === 'sys' ? 'Le grand chiffre, la systolique' : 'Le petit chiffre, la diastolique') + '</p>' : '') +
+        '<div class="stepper' + (parts.length > 1 ? ' sm' : '') + '"><button class="icon-btn" data-minus="' + mm + '" aria-label="Moins">' + icon('minus') + '</button><div class="val" data-val="' + mm + '" aria-live="polite"></div><button class="icon-btn" data-plus="' + mm + '" aria-label="Plus">' + icon('plus') + '</button></div>').join('');
+      parts.forEach(mm => { hold(sh.querySelector('[data-minus="' + mm + '"]'), () => bump(mm, -1)); hold(sh.querySelector('[data-plus="' + mm + '"]'), () => bump(mm, 1)); });
+      const keys = Object.keys(DATA.metrics[parts[0]].context || {});
+      sh.querySelector('#mCtxBox').hidden = !keys.length;
+      sh.querySelector('#mCtx').innerHTML = keys.map(c => '<button class="chip" data-c="' + c + '" aria-pressed="false">' + esc(CTXL[c] || DATA.contextLabels[c]) + '</button>').join('');
+      sh.querySelectorAll('#mCtx [data-c]').forEach(b => b.onclick = () => { ctx[b.dataset.c] = !ctx[b.dataset.c]; b.setAttribute('aria-pressed', !!ctx[b.dataset.c]); });
+      sh.querySelector('#mRes').innerHTML = '';
+      sh.querySelector('#mAct').innerHTML = '<button class="btn primary big block" id="mSave">' + icon('check') + 'Enregistrer</button>';
+      sh.querySelector('#mSave').onclick = save;
+      paint();
+    };
+    const pick = x => { k = x; sh.querySelectorAll('#mSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === x)); draw(); };
+    sh.querySelectorAll('#mSeg button').forEach(b => b.onclick = () => pick(b.dataset.k));
+    function save() {
       const context = {};
-      if (ctx.effort) context.effort = true;
-      if (ctx.stress) context.stress = true;
-      if (ctx.antipyretique) context.antipyretique = true;
-      const res = S.addMeasure(id, k, val, context);
+      Object.keys(ctx).forEach(c => { if (ctx[c]) context[c] = true; });
+      const results = [];
+      for (const mm of PARTS(k)) {
+        const r = S.addMeasure(id, mm, vals[mm], context);
+        results.push(r);
+        if (r.status !== 'processed') break;
+      }
       const box = sh.querySelector('#mRes');
-      if (res.status === 'rejected') { box.innerHTML = '<div class="env-note">' + icon('info') + '<p>Cette valeur n\'est pas possible pour un corps humain. Vérifie le capteur et recommence.</p></div>'; return; }
-      if (res.status === 'retake') { box.innerHTML = '<div class="env-note">' + icon('info') + '<p>Cette valeur est très loin de tes mesures habituelles. Le plus souvent, c\'est le capteur. Reprends-la calmement dans quelques minutes.</p></div>'; return; }
-      const ev = res.ev;
-      const terr = ev.terrestrial;
+      const bad = results.find(r => r.status !== 'processed');
+      if (bad) { box.innerHTML = '<div class="env-note">' + icon('info') + '<p>' + (bad.status === 'rejected' ? 'Cette valeur n\'est pas possible pour un corps humain. Vérifie l\'appareil et recommence.' : 'Cette valeur est très loin de tes mesures habituelles. Le plus souvent, c\'est l\'appareil. Reprends-la calmement dans quelques minutes.') + '</p></div>'; return; }
+      const evs = results.map(r => r.ev);
+      const rank = { normal: 0, vigilance: 1, urgence: 2 };
+      const ev = evs.reduce((a, e) => rank[e.level] > rank[a.level] ? e : a, evs[0]);
+      const terr = evs.map(e => e.terrestrial).find(t => t.level !== 'normal');
       let text = '';
       if (k === 'temp') {
         const shift = E.spatialOffset(DATA.metrics.temp, S.now());
-        text = (terr.level !== 'normal' ? 'Sur Terre, ' + A.num(val, 1) + ' °C serait une ' + terr.label + '. ' : '') + 'En apesanteur, ton corps est plus chaud d\'environ ' + A.num(shift, 1) + ' °C. ';
+        text = (terr ? 'Sur Terre, ' + A.num(vals.temp, 1) + ' °C serait une ' + terr.label + '. ' : '') + 'En apesanteur, ton corps est plus chaud d\'environ ' + A.num(shift, 1) + ' °C. ';
+      } else if (k === 'bp') {
+        const shift = -E.spatialOffset(DATA.metrics.sys, S.now());
+        text = (terr ? 'Sur Terre, ' + vals.sys + '/' + vals.dia + ' serait une ' + terr.label + '. ' : '') + 'En apesanteur, la tension baisse d\'environ ' + A.num(shift, 0) + ' mmHg. ';
+      } else if (k === 'glu') {
+        text = (terr && !context.repas ? 'Sur Terre, ' + vals.glu + ' mg/dL à jeun serait une ' + terr.label + '. ' : '') + (context.repas ? 'Après un repas, la glycémie monte : elle compte surtout à jeun. ' : '');
       }
-      text += ev.level === 'normal' ? 'Pour toi, aujourd\'hui, c\'est normal.' : ev.level === 'vigilance' ? 'C\'est un peu en dehors de ta plage habituelle. Reprends cette mesure ' + (k === 'temp' ? 'dans deux heures.' : 'après dix minutes de repos.') : 'C\'est loin de ta plage habituelle. Je préviens Keiko.';
-      if (ctx.antipyretique && k === 'temp') text += ' Attention : un médicament contre la fièvre peut cacher une fièvre.';
-      box.innerHTML = '<div class="panel tight" style="background:' + (ev.level === 'normal' ? 'rgba(123,227,198,.1)' : 'rgba(255,182,92,.12)') + '"><div class="row"><i class="dot ' + (ev.level === 'normal' ? '' : 'warn') + '"></i><b>' + (ev.level === 'normal' ? 'Normal pour toi' : 'À regarder') + '</b></div><p style="margin-top:8px">' + esc(text) + '</p></div>';
-      const btn = sh.querySelector('#mSave');
-      btn.innerHTML = icon('check') + 'Terminé';
-      btn.onclick = () => { A.closeSheet(); A.render(); };
-      A.dockSay(text, ev.level === 'normal' ? 'happy' : 'concerned');
-      A.celebrate(res.reward, 'mesure du jour');
-    };
+      if (ctx.antipyretique && k === 'temp') text += 'Attention : un médicament contre la fièvre peut cacher une fièvre. ';
+      text += ev.level === 'normal' ? 'Pour toi, aujourd\'hui, c\'est normal.' : ev.level === 'vigilance' ? 'C\'est un peu en dehors de ta plage habituelle. ' + AGAIN[k] : (k === 'glu' && vals.glu < 54 ? 'Prends tout de suite 15 g de sucre rapide, puis reprends la mesure dans 15 minutes. Je préviens Keiko.' : 'C\'est loin de ta plage habituelle. Je préviens Keiko.');
+      box.innerHTML = '<div class="panel tight" style="background:' + (ev.level === 'normal' ? 'rgba(123,227,198,.1)' : 'rgba(255,182,92,.12)') + '"><div class="row"><i class="dot ' + (ev.level === 'normal' ? '' : 'warn') + '"></i><b>' + (ev.level === 'normal' ? 'Normal pour toi' : 'À regarder') + '</b></div><p style="margin-top:8px">' + esc(text.trim()) + '</p></div>';
+      // la mesure suivante du matin, sans refermer
+      const i = ['temp', 'hr', 'spo2', 'bp'].indexOf(k);
+      const nx = i >= 0 && i < 3 ? ['temp', 'hr', 'spo2', 'bp'][i + 1] : null;
+      sh.querySelector('#mAct').innerHTML = (nx ? '<button class="btn primary big" id="mNext">' + icon('next') + 'Ensuite : ' + MET[nx].label.toLowerCase() + '</button>' : '') + '<button class="btn ' + (nx ? 'ghost' : 'primary') + ' big" id="mDone">' + icon('check') + 'Terminé</button>';
+      if (nx) sh.querySelector('#mNext').onclick = () => pick(nx);
+      sh.querySelector('#mDone').onclick = () => { A.closeSheet(); A.render(); };
+      A.dockSay(text.trim(), ev.level === 'normal' ? 'happy' : 'concerned');
+      A.celebrate(results[0].reward, 'mesure du jour');
+    }
+    draw();
   }
   A.measureSheet = measureSheet;
 

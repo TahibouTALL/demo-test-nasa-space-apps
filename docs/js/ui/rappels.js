@@ -33,12 +33,15 @@
   // l'heure proposée quand on remet à plus tard : au moins une heure après, au quart d'heure
   R.proposal = () => { const q = Math.ceil((S.minute() + 60) / 15) * 15; return q <= END ? q : null; };
 
+  // la glycémie se prend à jeun, une fois par semaine
+  const gluDue = id => { const l = S.lastMeasure(id, 'glu'); return !l || S.day() - l.d >= 7; };
+
   function define(id, b, c) {
     const { m, G, ex, dm } = c;
     switch (b.key) {
       case 'mesures': return {
         title: 'Tes mesures du matin', short: 'Mesures', nm: 'tes mesures du matin', cta: 'Mesurer',
-        sub: S.measuredToday(id) ? 'Faites pour aujourd\'hui' : 'Température, pouls et saturation, deux minutes',
+        sub: S.measuredToday(id) ? 'Faites pour aujourd\'hui' : 'Température, pouls, saturation et tension' + (gluDue(id) ? ', et la glycémie à jeun' : ''),
         done: S.measuredToday(id), act: () => A.go('sante'),
         now: 'C\'est l\'heure de tes mesures du matin.', soon: cd => 'Tes mesures du matin, c\'est ' + cd + '.',
         missed: 'Tes mesures du matin t\'attendent, quand tu veux.' };
@@ -232,6 +235,8 @@
       if (it.status !== 'now') continue;
       const k = it.key + '@' + it.t;
       if (p.told[k]) continue;
+      // une fenêtre est ouverte (une mesure, une fiche) : le rappel attend qu'elle se referme
+      if (!document.hidden && document.querySelector('.backdrop')) continue;
       p.told[k] = 1; changed = true;
       if (!home) banner(it, id);
       notify(it, m);

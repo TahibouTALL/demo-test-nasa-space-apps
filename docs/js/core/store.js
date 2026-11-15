@@ -6,7 +6,7 @@
   const A = root.AURA;
   const DATA = root.AURA_DATA, E = root.AURA_ENGINE, PH = root.AURA_PHARMA;
   const KEY = 'aura-v2';
-  const VERSION = 3;
+  const VERSION = 4;
 
   // Compléments de démonstration : sexe (pour les fiches propres à un sexe), couleur, appareils
   const CREW_EXTRA = {
@@ -16,7 +16,7 @@
     a4: { sexe: 'H', hue: 152, conf: 5 }
   };
   const TODAY = 58;
-  const METRICS = ['temp', 'hr', 'spo2'];
+  const METRICS = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'];
 
   const S = { state: null };
   A.store = S;
@@ -30,16 +30,21 @@
     const ex = CREW_EXTRA[c.id];
     const filters = {};
     METRICS.forEach(m => { filters[m] = E.initFilter(DATA.metrics[m], c.pre[m]); });
-    const measures = { temp: [], hr: [], spo2: [], sleep: [], mood: [] };
+    const measures = { temp: [], hr: [], spo2: [], sys: [], dia: [], glu: [], sleep: [], mood: [] };
     const exercise = [];
     for (let d = 1; d < TODAY; d++) {
       const t = d + 7 / 24;
       const vals = {
         temp: +(c.pre.temp.mean + c.truth.tempRise * (1 - Math.exp(-d / 30)) + g() * 0.14).toFixed(1),
         hr: Math.round(c.truth.hr + g() * 2.6),
-        spo2: Math.min(100, +(c.truth.spo2 + g() * 0.45).toFixed(0))
+        spo2: Math.min(100, +(c.truth.spo2 + g() * 0.45).toFixed(0)),
+        sys: Math.round(c.truth.sys + 9 * Math.exp(-d / 5) + g() * 5),
+        dia: Math.round(c.truth.dia + 9 * Math.exp(-d / 5) + g() * 3.5)
       };
+      // la glycémie se mesure à jeun, une fois par semaine
+      if ((d + i * 2) % 7 === 0) vals.glu = Math.round(c.truth.glu + g() * 4);
       METRICS.forEach(m => {
+        if (vals[m] === undefined) return;
         const res = E.processMeasurement(DATA.metrics[m], filters[m], { t, value: vals[m] });
         if (res.status === 'processed') filters[m] = res.filter;
         measures[m].push({ d, t, v: vals[m], lvl: res.ev ? res.ev.level : 'normal' });
@@ -56,8 +61,9 @@
     // aujourd'hui : rien encore, sauf pour Aminata qui a déjà fait sa mesure et du vélo
     if (c.id === 'a1') {
       const t = TODAY + 7 / 24;
-      const v = { temp: 37.9, hr: 58, spo2: 98 };
+      const v = { temp: 37.9, hr: 58, spo2: 98, sys: 108, dia: 66 };
       METRICS.forEach(m => {
+        if (v[m] === undefined) return;
         const res = E.processMeasurement(DATA.metrics[m], filters[m], { t, value: v[m] });
         if (res.status === 'processed') filters[m] = res.filter;
         measures[m].push({ d: TODAY, t, v: v[m], lvl: res.ev ? res.ev.level : 'normal' });

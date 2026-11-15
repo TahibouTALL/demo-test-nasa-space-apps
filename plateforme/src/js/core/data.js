@@ -18,6 +18,26 @@
       ref: 'Stahn A.C. et al. « Increased core body temperature in astronauts during long-duration space missions ». Scientific Reports 7, 16180 (2017). 11 astronautes, hausse d’environ 1 °C au repos, plateau après 75 jours.',
       url: 'https://doi.org/10.1038/s41598-017-15560-w'
     },
+    norsk2015: {
+      label: 'Norsk et al., 2015',
+      ref: 'Norsk P. et al. « Fluid shifts, vasodilatation and ambulatory blood pressure reduction during long duration spaceflight ». The Journal of Physiology 593(3), 573-584 (2015). 8 astronautes, 3 à 6 mois sur l’ISS : la tension mesurée sur 24 heures baisse d’environ 8 à 10 mmHg.',
+      url: 'https://doi.org/10.1113/jphysiol.2014.284869'
+    },
+    hughson2016: {
+      label: 'Hughson et al., 2016',
+      ref: 'Hughson R.L. et al. « Increased postflight carotid artery stiffness and inflight insulin resistance resulting from 6-mo spaceflight in male and female astronauts ». American Journal of Physiology, Heart and Circulatory Physiology (2016). Résistance à l’insuline observée pendant six mois de vol.',
+      url: 'https://ir.lib.uwo.ca/boneandjointpub/1231'
+    },
+    aha2017: {
+      label: 'American Heart Association',
+      ref: 'American Heart Association, catégories de la pression artérielle (2017) : normale sous 120/80 mmHg, hypertension à partir de 130/80, urgence au-delà de 180/120.',
+      url: 'https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings'
+    },
+    ada: {
+      label: 'American Diabetes Association',
+      ref: 'American Diabetes Association : glycémie à jeun normale de 70 à 99 mg/dL, prédiabète de 100 à 125, diabète à partir de 126 ; hypoglycémie sous 70 mg/dL, sévère sous 54.',
+      url: 'https://diabetes.org/about-diabetes/diagnosis'
+    },
     law2014: {
       label: 'Law et al., 2014',
       ref: 'Law J. et al. « Relationship between carbon dioxide levels and reported headaches on the International Space Station ». Journal of Occupational and Environmental Medicine, 2014. Les chances de céphalée doublent environ par hausse de 1 mmHg de CO₂.',
@@ -277,13 +297,104 @@
       context: {
         effort: { offset: -1, tol: 1.3 }
       }
+    },
+    sys: {
+      id: 'sys',
+      label: 'Tension artérielle systolique',
+      short: 'Tension systolique',
+      lc: 'tension systolique',
+      unit: 'mmHg',
+      decimals: 0,
+      step: 1,
+      popMean: 118,
+      popSd: 11,
+      withinSd: 9,
+      q: 0.5,
+      driftAllow: 6,
+      spatial: {
+        kind: 'exp', max: -8, tau: 5, sd: 6, source: 'norsk2015',
+        crew: 'en apesanteur, la tension baisse en moyenne de 8 à 10 mmHg : les vaisseaux se détendent quand les liquides remontent vers le haut du corps',
+        doctor: 'δ(t) = -8 mmHg × (1 - e^(-t/5)), d’après Norsk et al. (2015) : tension ambulatoire sur 24 h, 8 astronautes, 3 à 6 mois'
+      },
+      terrestrial: {
+        low: 90, high: 129, lowLabel: 'tension basse', highLabel: 'tension élevée',
+        alertHigh: 180, alertHighLabel: 'poussée hypertensive', alertLow: 80, alertLowLabel: 'hypotension marquée',
+        text: 'repère clinique usuel : moins de 130 mmHg, urgence au-delà de 180'
+      },
+      hard: { low: 80, high: 180 },
+      plausible: { min: 60, max: 260 },
+      context: {
+        effort: { offset: 10, tol: 1.6 },
+        stress: { offset: 6, tol: 1.3 }
+      }
+    },
+    dia: {
+      id: 'dia',
+      label: 'Tension artérielle diastolique',
+      short: 'Tension diastolique',
+      lc: 'tension diastolique',
+      unit: 'mmHg',
+      decimals: 0,
+      step: 1,
+      popMean: 76,
+      popSd: 8,
+      withinSd: 6,
+      q: 0.35,
+      driftAllow: 4,
+      spatial: {
+        kind: 'exp', max: -9, tau: 5, sd: 4, source: 'norsk2015',
+        crew: 'en apesanteur, la tension baisse en moyenne de 8 à 10 mmHg : les vaisseaux se détendent quand les liquides remontent vers le haut du corps',
+        doctor: 'δ(t) = -9 mmHg × (1 - e^(-t/5)), d’après Norsk et al. (2015)'
+      },
+      terrestrial: {
+        low: 60, high: 79, lowLabel: 'tension basse', highLabel: 'tension élevée',
+        alertHigh: 120, alertHighLabel: 'poussée hypertensive', alertLow: 50, alertLowLabel: 'hypotension marquée',
+        text: 'repère clinique usuel : moins de 80 mmHg, urgence au-delà de 120'
+      },
+      hard: { low: 50, high: 120 },
+      plausible: { min: 30, max: 160 },
+      context: {
+        effort: { offset: 3, tol: 1.4 },
+        stress: { offset: 4, tol: 1.3 }
+      }
+    },
+    glu: {
+      id: 'glu',
+      label: 'Glycémie à jeun',
+      short: 'Glycémie',
+      lc: 'glycémie',
+      unit: 'mg/dL',
+      decimals: 0,
+      step: 1,
+      popMean: 90,
+      popSd: 8,
+      withinSd: 6,
+      q: 0.2,
+      driftAllow: 5,
+      spatial: {
+        kind: 'none', max: 0, sd: 4, source: 'hughson2016',
+        crew: 'en vol, le corps peut devenir moins sensible à l’insuline : la glycémie est comparée à ta propre référence, et une hausse lente compte',
+        doctor: 'aucun décalage moyen retenu ; résistance à l’insuline décrite pendant six mois de vol (Hughson et al., 2016) : suivre la tendance'
+      },
+      terrestrial: {
+        low: 70, high: 99, lowLabel: 'glycémie basse', highLabel: 'glycémie à jeun élevée',
+        alertHigh: 200, alertHighLabel: 'hyperglycémie', alertLow: 54, alertLowLabel: 'hypoglycémie',
+        text: 'repère clinique usuel à jeun : 70 à 99 mg/dL, hypoglycémie sous 54'
+      },
+      hard: { low: 54, high: 250 },
+      plausible: { min: 20, max: 600 },
+      context: {
+        repas: { offset: 20, tol: 3 },
+        effort: { offset: -4, tol: 1.3 }
+      }
     }
   };
 
   const contextLabels = {
     effort: 'Effort physique dans la dernière heure',
     stress: 'Stress ou charge de travail inhabituels',
-    antipyretique: 'Médicament contre la fièvre dans les 6 dernières heures'
+    antipyretique: 'Médicament contre la fièvre dans les 6 dernières heures',
+    repas: 'Repas ou boisson sucrée dans les deux dernières heures'
   };
 
   /* Actions proposées par mesure et par niveau, dans les deux langages */
@@ -320,6 +431,39 @@
         crew: 'Prévenez le médecin de bord. Asseyez-vous et respirez calmement. Oxygène selon la procédure si la valeur reste sous 90 %.',
         doctor: 'Oxygénothérapie selon procédure, auscultation, contrôle de l’atmosphère cabine.'
       }
+    },
+    sys: {
+      normal: { crew: 'rien de particulier, continuez comme d’habitude.', doctor: 'pas d’action particulière.' },
+      vigilance: {
+        crew: 'Asseyez-vous cinq minutes au calme, le bras posé à hauteur du cœur, puis reprenez la mesure.',
+        doctor: 'Recontrôle après 5 minutes de repos assis. Croiser avec l’effort, le stress, la douleur et les médicaments.'
+      },
+      urgence: {
+        crew: 'Prévenez le médecin de bord. Restez au repos et reprenez la mesure dans cinq minutes.',
+        doctor: 'Évaluation immédiate : signes neurologiques, douleur thoracique, troubles de la vision, conduite selon la fiche.'
+      }
+    },
+    dia: {
+      normal: { crew: 'rien de particulier, continuez comme d’habitude.', doctor: 'pas d’action particulière.' },
+      vigilance: {
+        crew: 'Asseyez-vous cinq minutes au calme, le bras posé à hauteur du cœur, puis reprenez la mesure.',
+        doctor: 'Recontrôle après 5 minutes de repos assis. Croiser avec l’effort, le stress, la douleur et les médicaments.'
+      },
+      urgence: {
+        crew: 'Prévenez le médecin de bord. Restez au repos et reprenez la mesure dans cinq minutes.',
+        doctor: 'Évaluation immédiate : signes neurologiques, douleur thoracique, troubles de la vision, conduite selon la fiche.'
+      }
+    },
+    glu: {
+      normal: { crew: 'rien de particulier, continuez comme d’habitude.', doctor: 'pas d’action particulière.' },
+      vigilance: {
+        crew: 'Vérifiez que vous êtes bien à jeun, lavez et séchez le doigt, puis reprenez la mesure.',
+        doctor: 'Recontrôle à jeun. Si la hausse se confirme sur plusieurs semaines, rechercher une résistance à l’insuline avec les moyens du bord.'
+      },
+      urgence: {
+        crew: 'Sous 54 mg/dL : prenez tout de suite 15 g de sucre rapide, puis prévenez le médecin de bord. Au-dessus de 250 : prévenez le médecin de bord.',
+        doctor: 'Hypoglycémie : resucrage oral immédiat, recontrôle à 15 minutes. Hyperglycémie marquée : recherche de cétose, hydratation, évaluation.'
+      }
     }
   };
 
@@ -354,27 +498,27 @@
     {
       id: 'a1', name: 'Aminata Sarr', role: 'Commandante', fictif: true,
       backup: 'Suppléante de la médecin de bord, formée aux premiers secours (environ 40 heures de formation médicale)',
-      pre: { temp: { mean: 36.7, n: 20 }, hr: { mean: 56, n: 20 }, spo2: { mean: 98.1, n: 20 } },
-      truth: { tempRise: 1.05, hr: 57, spo2: 98.0, rt: 258 },
+      pre: { temp: { mean: 36.7, n: 20 }, hr: { mean: 56, n: 20 }, spo2: { mean: 98.1, n: 20 }, sys: { mean: 114, n: 20 }, dia: { mean: 72, n: 20 }, glu: { mean: 86, n: 6 } },
+      truth: { tempRise: 1.05, hr: 57, spo2: 98.0, sys: 106, dia: 64, glu: 88, rt: 258 },
       wb: { mood: 4.1, stress: 2.4, sleep: 6.4, load: 3.2 }
     },
     {
       id: 'a2', name: 'Lucas Moreau', role: 'Ingénieur de vol', fictif: true,
-      pre: { temp: { mean: 36.9, n: 20 }, hr: { mean: 63, n: 20 }, spo2: { mean: 97.6, n: 20 } },
-      truth: { tempRise: 0.95, hr: 64, spo2: 97.5, rt: 271 },
+      pre: { temp: { mean: 36.9, n: 20 }, hr: { mean: 63, n: 20 }, spo2: { mean: 97.6, n: 20 }, sys: { mean: 122, n: 20 }, dia: { mean: 78, n: 20 }, glu: { mean: 92, n: 6 } },
+      truth: { tempRise: 0.95, hr: 64, spo2: 97.5, sys: 113, dia: 69, glu: 94, rt: 271 },
       wb: { mood: 3.8, stress: 2.8, sleep: 6.1, load: 3.6 }
     },
     {
       id: 'a3', name: 'Keiko Tanaka', role: 'Médecin de bord', fictif: true,
-      pre: { temp: { mean: 36.6, n: 20 }, hr: { mean: 59, n: 20 }, spo2: { mean: 98.0, n: 20 } },
-      truth: { tempRise: 1.15, hr: 60, spo2: 97.9, rt: 262 },
+      pre: { temp: { mean: 36.6, n: 20 }, hr: { mean: 59, n: 20 }, spo2: { mean: 98.0, n: 20 }, sys: { mean: 108, n: 20 }, dia: { mean: 68, n: 20 }, glu: { mean: 84, n: 6 } },
+      truth: { tempRise: 1.15, hr: 60, spo2: 97.9, sys: 101, dia: 60, glu: 85, rt: 262 },
       wb: { mood: 4.0, stress: 2.6, sleep: 6.3, load: 3.4 },
       sleepDecline: { from: 46, to: 5.1 }
     },
     {
       id: 'a4', name: 'Rafael Ortiz', role: 'Spécialiste scientifique', fictif: true,
-      pre: { temp: { mean: 36.8, n: 20 }, hr: { mean: 51, n: 20 }, spo2: { mean: 97.8, n: 20 } },
-      truth: { tempRise: 0.85, hr: 52, spo2: 97.7, rt: 284 },
+      pre: { temp: { mean: 36.8, n: 20 }, hr: { mean: 51, n: 20 }, spo2: { mean: 97.8, n: 20 }, sys: { mean: 126, n: 20 }, dia: { mean: 80, n: 20 }, glu: { mean: 95, n: 6 } },
+      truth: { tempRise: 0.85, hr: 52, spo2: 97.7, sys: 117, dia: 71, glu: 99, rt: 284 },
       wb: { mood: 3.9, stress: 2.5, sleep: 6.0, load: 3.3 }
     }
   ];

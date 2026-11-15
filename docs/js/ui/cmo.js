@@ -45,10 +45,10 @@
     const last = k => S.lastMeasure(id, k);
     const m = S.member(id);
     const shift = m.filters.temp.x - m.filters.temp.preMu;
-    const nw = TR.news2({ temp: last('temp') ? last('temp').v : null, hr: last('hr') ? last('hr').v : null, spo2: last('spo2') ? last('spo2').v : null }, { tempShift: shift });
+    const nw = TR.news2({ temp: last('temp') ? last('temp').v : null, hr: last('hr') ? last('hr').v : null, spo2: last('spo2') ? last('spo2').v : null, sys: last('sys') ? last('sys').v : null }, { tempShift: shift });
     const sl = m.measures.sleep.slice(-7);
     const ex = m.exercise.filter(x => x.d > S.day() - 7).reduce((a, x) => a + x.min, 0) / 7;
-    const bad = ['temp', 'hr', 'spo2'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
+    const bad = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
     return { last, nw, sleep: sl.reduce((a, x) => a + x.v, 0) / Math.max(1, sl.length), ex, bad, shift };
   }
 
@@ -171,7 +171,7 @@
   function solSheet(v) {
     const p = S.profile(v.who);
     const L = S.light();
-    const msg = 'Qui : ' + p.name + ' (' + p.role + '). Depuis : jour ' + v.d + ' à ' + A.hm(v.min) + '. Signes : ' + ((v.pour || []).map(c => (VOCAB.FACTS[c] || {}).label || c).join(', ') || v.texte) + '. Mesures : ' + ['temp', 'hr', 'spo2'].map(k => { const l = S.lastMeasure(v.who, k); return l ? DATA.metrics[k].short + ' ' + A.num(l.v, DATA.metrics[k].decimals) : ''; }).filter(Boolean).join(', ') + '. Orientations : ' + [{ nom: v.ficheNom, p: v.p }].concat(v.autres || []).map(o => o.nom + ' ' + pct(o.p)).join(' ; ') + '. Traitement envisagé : ' + (v.medNom || 'gestes de la fiche') + '. Question : confirmez-vous ce traitement ? Réponse souhaitée avant : jour ' + (S.day() + (L > 10 ? 1 : 0)) + '.';
+    const msg = 'Qui : ' + p.name + ' (' + p.role + '). Depuis : jour ' + v.d + ' à ' + A.hm(v.min) + '. Signes : ' + ((v.pour || []).map(c => (VOCAB.FACTS[c] || {}).label || c).join(', ') || v.texte) + '. Mesures : ' + ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].map(k => { const l = S.lastMeasure(v.who, k); return l ? DATA.metrics[k].short + ' ' + A.num(l.v, DATA.metrics[k].decimals) : ''; }).filter(Boolean).join(', ') + '. Orientations : ' + [{ nom: v.ficheNom, p: v.p }].concat(v.autres || []).map(o => o.nom + ' ' + pct(o.p)).join(' ; ') + '. Traitement envisagé : ' + (v.medNom || 'gestes de la fiche') + '. Question : confirmez-vous ce traitement ? Réponse souhaitée avant : jour ' + (S.day() + (L > 10 ? 1 : 0)) + '.';
     const sh = A.sheet('Demander l\'avis du sol', '<p class="muted">Un seul message clair, comme le demande la règle R-COM-05. Réponse au plus tôt dans ' + A.dur(2 * L + 45) + '.</p><label class="field" style="margin-top:14px"><span>Message</span><textarea id="solMsg">' + esc(msg) + '</textarea></label><button class="btn primary block" id="solGo" style="margin-top:16px">' + icon('send') + 'Mettre en tête de la file</button>', { wide: true });
     sh.querySelector('#solGo').onclick = () => { S.queue({ prio: v.urgent ? 0 : 1, kind: 'avis', who: v.who, titre: 'Avis demandé : ' + v.ficheNom + ' (' + p.name + ')', texte: sh.querySelector('#solMsg').value }); S.decide(v.id, 'avis du sol'); A.closeSheet(); A.toast(icon('satellite') + 'Message placé dans la file vers la Terre'); A.render(); };
   }

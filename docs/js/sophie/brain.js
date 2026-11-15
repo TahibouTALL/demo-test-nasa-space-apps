@@ -78,6 +78,10 @@
     if (has(t, /\b(bonne nuit|je vais dormir|je vais me coucher)\b/)) return { say: 'Bonne nuit ' + me + '. Je baisse les lumières de l\'écran. Si tu veux, je te guide pour une respiration lente avant de dormir.', emotion: 'happy', chips: ['Respiration guidée'] };
     if (has(t, /\b(je t aime|tu es gentille|tu es genial|je t adore)\b/)) return { say: 'Ça me touche. Je suis là pour toi, tous les jours de la mission.', emotion: 'happy' };
     if (has(t, /\b(deuil|deces|decede|decedee|est mort|est morte)\b/)) return { say: 'Je suis vraiment désolée, ' + me + '. Prends le temps qu\'il faut. Tu veux en parler avec moi, ou que je prévienne Keiko ? Le psychologue au sol peut aussi t\'appeler.', emotion: 'concerned', chips: ['En parler', 'Appeler Keiko'] };
+    if (/\b(tension arterielle|pression arterielle|tensiometre|ma tension|(prendre|mesurer|verifier) (ma |la )?tension|glycemie|taux de sucre|sucre dans le sang)\b/.test(t) && !/\b(dispute|conflit|avec|entre nous|a bord|equipe)\b/.test(t)) {
+      const metric = /glycemie|sucre/.test(t) ? 'glu' : 'bp';
+      return { say: metric === 'glu' ? 'D\'accord. La glycémie se prend à jeun, une goutte au bout du doigt. Je t\'ouvre la mesure.' : 'D\'accord. Assieds-toi cinq minutes, le bras à hauteur du cœur. Je t\'ouvre la mesure.', action: { type: 'measure', metric } };
+    }
     if (has(t, /\b(dispute|disputes|conflit|tension|tensions|supporte plus|enerve|agace)\b/)) return { say: 'Une tension à bord, c\'est fréquent dans un espace aussi petit. Tu veux en parler, ou l\'écrire dans ton journal pour y voir plus clair ?', emotion: 'concerned', chips: ['En parler', 'Mon journal'] };
     if (has(t, /\b(stress|stresse|stressee|angoisse|angoissee|peur|inquiet|inquiete|triste|cafard|seul|seule|solitude|manque|manquent|deprime|deprimee|mal du pays)\b/)) return { say: 'Merci de me le dire. C\'est normal de ressentir ça, si loin de chez soi. Tu veux en parler un peu, l\'écrire dans ton journal, ou faire une pause au bord du lac ?', emotion: 'concerned', chips: ['En parler', 'Mon journal', 'Le lac'] };
     if (has(t, /\b(dormir|dors|dormi|sommeil|insomnie|reveille|nuit|nuits)\b/)) return { say: 'Les nuits difficiles, ça use. Tu as dormi ' + A.num(ctx.sleep, 1) + ' heures en moyenne cette semaine. Ce soir, une respiration lente avant de dormir peut aider. Tu veux qu\'on regarde ça ensemble ?', emotion: 'concerned', chips: ['Regarder ça ensemble', 'Respiration guidée'] };
@@ -203,7 +207,7 @@
     }
     // mesures
     if (/\b(prendre|mesurer|noter|enregistrer|ajouter)\b.*\b(temperature|pouls|saturation|mesure|tension)\b/.test(t)) {
-      const metric = /pouls/.test(t) ? 'hr' : /saturation/.test(t) ? 'spo2' : 'temp';
+      const metric = /pouls/.test(t) ? 'hr' : /saturation/.test(t) ? 'spo2' : /tension/.test(t) ? 'bp' : /glycemie|sucre/.test(t) ? 'glu' : 'temp';
       return { say: 'D\'accord, on prend ta mesure.', action: { type: 'measure', metric } };
     }
     // simulations

@@ -323,7 +323,7 @@ svg.sophie { display: block; width: 100%; height: auto; overflow: visible; }
 .status-hero.warn .halo { color: #3A2200; background: radial-gradient(circle at 35% 30%, #FFF0D6, var(--warn) 55%, #D7832A); box-shadow: 0 0 0 10px rgba(255, 182, 92, .1), 0 0 44px rgba(255, 182, 92, .35); }
 .status-hero .halo svg.i { width: 34px; height: 34px; }
 .status-hero h2 { font-size: 1.6rem; font-weight: 600; }
-.vitals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.vitals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .vital { padding: 20px; border-radius: var(--r-lg); background: var(--hull); border: 1px solid var(--line); text-align: left; color: var(--ink); display: grid; gap: 6px; transition: transform .25s var(--spring), background .2s; min-width: 0; }
 button.vital:hover { background: var(--hull-2); transform: translateY(-3px); }
 .vital .k { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: .92rem; }
@@ -971,3 +971,14 @@ html.coaching, html.coaching body { overflow: hidden; }
 .rbanner .ac { display: flex; gap: 6px; align-items: center; }
 @media (max-width: 640px) { .rbanner { grid-template-columns: auto minmax(0, 1fr); } .rbanner .ac { grid-column: 1 / -1; } .rbanner .ac .btn { flex: 1; justify-content: center; } }
 @media (prefers-reduced-motion: reduce) { .rbanner { transition: opacity .2s; transform: translate(-50%, 0); } }
+
+/* ---------- Prendre une mesure : conseil, deux chiffres pour la tension ---------- */
+.m-hint { display: flex; gap: 10px; align-items: flex-start; color: var(--ink-2); font-size: .96rem; line-height: 1.45; padding: 12px 14px; border-radius: var(--r-md); background: rgba(121, 216, 255, .07); border: 1px solid rgba(121, 216, 255, .16); }
+.m-hint svg.i { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--atmo); }
+.m-lab { text-align: center; color: var(--ink-2); font-size: .9rem; margin: 6px 0 4px; }
+.stepper.sm { gap: 18px; }
+.stepper.sm .val { font-size: 3rem; }
+.stepper.sm .icon-btn { width: 56px; height: 56px; }
+#mAct { gap: 10px; }
+#mAct .btn { flex: 1; justify-content: center; }
+#mSteps { display: grid; gap: 4px; }
