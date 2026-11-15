@@ -82,6 +82,41 @@
     ];
   }
 
+  // dose de radiations reçue depuis le départ : environ 1,8 mSv par jour en trajet (Zeitlin, 2013),
+  // 0,64 mSv par jour à la surface de Mars (Hassler, 2014)
+  const E = root.AURA_ENGINE;
+  function dose() {
+    let d = 0;
+    for (let k = 1; k <= S.day(); k++) d += E.phaseAt(DATA.mission, k).id === 'surface' ? 0.64 : 1.8;
+    return d;
+  }
+  // les cinq dangers du vol habité (NASA, Human Research Program) et ce qu'AURA fait pour chacun
+  function hazards(id) {
+    const dz = dose(), lim = 600, light = S.light ? S.light() : null;
+    return [
+      { key: 'rad', name: 'Radiations', ic: 'sun', a: '#FFE3A3', b: '#E08A1E',
+        does: 'Hors du champ magnétique de la Terre, les rayons cosmiques et les éruptions solaires traversent le vaisseau.',
+        you: 'Tu as reçu environ ' + A.num(dz, 0) + ' mSv depuis le départ, sur ' + lim + ' permis par la NASA pour toute une carrière.',
+        bar: dz / lim, act: ['Rejoindre l\'abri', () => A.go('videos/eruption')] },
+      { key: 'iso', name: 'Isolement et confinement', ic: 'users', a: '#D6CEFF', b: '#6B57E8',
+        does: 'Peu de monde, peu d\'espace, des mois sans changer de décor : le sommeil et le moral s\'usent.',
+        you: 'La conférence de la semaine, ton journal privé et les évasions en 3D t\'aident à souffler.',
+        act: ['Une évasion', () => A.go('evasion')] },
+      { key: 'dist', name: 'Distance de la Terre', ic: 'satellite', a: '#B5E3FF', b: '#2F6FE0',
+        does: 'Aucune évacuation possible, et la Terre répond avec du retard, ou plus du tout pendant la conjonction.',
+        you: 'La Terre est à ' + (light ? A.num(light, 0) + ' min' : 'plusieurs minutes') + ' : diagnostic, traitement et premiers gestes se font à bord.',
+        act: ['M\'entraîner aux urgences', () => A.go('simulations')] },
+      { key: 'grav', name: 'Champs de gravité', ic: 'orbit', a: '#9BF0D6', b: '#1E9E8C',
+        does: 'Sans pesanteur, les os et les muscles fondent, les liquides remontent vers la tête, l\'équilibre se dérègle.',
+        you: 'Tes os et tes muscles sont suivis dans Mon corps, et ton sport du jour les protège.',
+        act: ['Ma séance', () => A.go('defis')] },
+      { key: 'env', name: 'Environnement hostile et fermé', ic: 'wind', a: '#FFD0B8', b: '#D2603C',
+        does: 'Un air recyclé où le CO₂ s\'accumule, des microbes qui circulent, du bruit, de la lumière artificielle.',
+        you: 'AURA tient compte du CO₂ de la cabine, et cherche une cause commune quand plusieurs équipiers tombent malades.',
+        act: ['Je ne me sens pas bien', () => A.go('triage')] }
+    ];
+  }
+
   /* ---------------- la silhouette ---------------- */
   // mêmes proportions que les personnages du sport et des films : 1 = la hauteur du corps
   const heart = (cx, cy, s) => 'M' + cx + ' ' + (cy + 0.35 * s) + ' C' + (cx - 0.62 * s) + ' ' + (cy - 0.02 * s) + ' ' + (cx - 0.36 * s) + ' ' + (cy - 0.58 * s) + ' ' + cx + ' ' + (cy - 0.24 * s) + ' C' + (cx + 0.36 * s) + ' ' + (cy - 0.58 * s) + ' ' + (cx + 0.62 * s) + ' ' + (cy - 0.02 * s) + ' ' + cx + ' ' + (cy + 0.35 * s) + ' Z';
@@ -144,7 +179,14 @@
             '<nav class="corps-list" aria-label="Parties du corps">' + list.map(x => '<button data-o="' + x.key + '" aria-pressed="' + (x.key === this.sel) + '" style="--c:' + COL[x.st] + '"><i></i>' + esc(x.name) + '</button>').join('') + '</nav>' +
             '<div id="cDetail" aria-live="polite">' + detail(p) + '</div>' +
           '</div>' +
-        '</div></div>';
+        '</div>' +
+        '<section class="hz" aria-labelledby="hzT"><div class="hz-head"><h2 id="hzT">Les cinq dangers du vol habité</h2><p class="muted">La NASA range les dangers d\'un vol habité en cinq familles. Vers Mars, l\'équipage les vit toutes à la fois. Voici ce que chacune fait, et ce qu\'AURA fait pour toi.</p></div>' +
+          '<ol class="hz-list">' + hazards(id).map((h, i) => '<li style="--a:' + h.a + ';--b:' + h.b + '"><span class="disc">' + icon(h.ic) + '</span><h3>' + esc(h.name) + '</h3><p>' + esc(h.does) + '</p><p class="you">' + esc(h.you) + '</p>' +
+            (h.bar !== undefined ? '<span class="hz-bar" role="img" aria-label="' + Math.round(h.bar * 100) + ' % de la limite"><i style="width:' + Math.min(100, h.bar * 100).toFixed(1) + '%"></i></span>' : '') +
+            '<button class="btn small" data-hz="' + i + '">' + esc(h.act[0]) + '</button></li>').join('') + '</ol>' +
+          '<p class="hz-src">Sources : <a href="https://www.nasa.gov/hrp/hazards" target="_blank" rel="noopener">NASA, Human Research Program, les cinq dangers du vol habité</a> ; <a href="https://www.asc-csa.gc.ca/eng/news/articles/2026/2026-02-26-monitoring-radiation-astronaut-health.asp" target="_blank" rel="noopener">Agence spatiale canadienne, surveiller les radiations</a> ; doses : Zeitlin, 2013, et Hassler, 2014 ; limite : NASA-STD-3001.</p>' +
+        '</section>' +
+        '</div>';
     },
     mount(node) {
       const id = S.state.who;
@@ -162,6 +204,8 @@
         el.addEventListener('click', e => { e.stopPropagation(); show(el.dataset.o); });
         el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(el.dataset.o); } });
       });
+      const hz = hazards(id);
+      node.querySelectorAll('[data-hz]').forEach(b => b.onclick = () => hz[+b.dataset.hz].act[1]());
       const p = parts(id).find(x => x.key === this.sel);
       node.querySelectorAll('#cDetail [data-a]').forEach(b => b.onclick = () => p.acts[+b.dataset.a][2]());
     }

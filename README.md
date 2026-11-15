@@ -37,7 +37,9 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
   conseil pour bien la prendre.
 - **Mon corps** : une silhouette dont chaque partie se touche (cerveau, yeux, cœur, poumons,
   digestion, reins, os, muscles, peau) : à quoi elle sert, ce que le vol lui fait, comment elle va
-  chez l'astronaute, et quoi faire. La couleur dit l'état d'un coup d'œil.
+  chez l'astronaute, et quoi faire. La couleur dit l'état d'un coup d'œil. En dessous, les cinq dangers du vol
+  habité de la NASA (radiations, isolement, distance, gravité, environnement), ce que chacun fait et
+  ce qu'AURA fait pour l'astronaute, avec la dose de radiations reçue depuis le départ.
 - **Conférence de la semaine** : quinze minutes avec Sophie, à la voix ou par écrit, sur six sujets
   (alimentation, sommeil, exercice, élimination, charge de travail, moral). Le résumé est relu avant
   l'envoi, et la partie moral reste privée sans accord.

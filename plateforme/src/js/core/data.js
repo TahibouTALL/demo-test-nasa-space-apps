@@ -38,6 +38,21 @@
       ref: 'American Diabetes Association : glycémie à jeun normale de 70 à 99 mg/dL, prédiabète de 100 à 125, diabète à partir de 126 ; hypoglycémie sous 70 mg/dL, sévère sous 54.',
       url: 'https://diabetes.org/about-diabetes/diagnosis'
     },
+    hrpHazards: {
+      label: 'NASA, les cinq dangers du vol habité',
+      ref: 'NASA Human Research Program, « 5 Hazards of Human Spaceflight » : radiations, isolement et confinement, distance de la Terre, champs de gravité, environnement hostile et fermé.',
+      url: 'https://www.nasa.gov/hrp/hazards'
+    },
+    hrpRisks: {
+      label: 'NASA, les risques du vol habité',
+      ref: 'NASA Human Research Program, « Risks of Human Spaceflight » : les risques pour la santé suivis par la NASA, un par page.',
+      url: 'https://www.nasa.gov/hrp/risks'
+    },
+    csaRadiation: {
+      label: 'Agence spatiale canadienne, radiations',
+      ref: 'Agence spatiale canadienne, « Monitoring radiation for astronaut health » (2026) : pourquoi et comment mesurer en permanence la dose reçue par les astronautes.',
+      url: 'https://www.asc-csa.gc.ca/eng/news/articles/2026/2026-02-26-monitoring-radiation-astronaut-health.asp'
+    },
     law2014: {
       label: 'Law et al., 2014',
       ref: 'Law J. et al. « Relationship between carbon dioxide levels and reported headaches on the International Space Station ». Journal of Occupational and Environmental Medicine, 2014. Les chances de céphalée doublent environ par hausse de 1 mmHg de CO₂.',
