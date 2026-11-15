@@ -44,13 +44,10 @@
     const first = A.first(p.name);
     const hello = A.greet(S.minute()) + ' ' + first + '.';
     const lvls = ['temp', 'hr', 'spo2'].map(k => S.lastMeasure(id, k)).filter(x => x && x.d === S.day());
-    const dm = A.gamify.dayMissions(id);
-    // une seule chose à dire, la plus utile
+    // une seule chose à dire, la plus utile : une mesure à regarder, sinon le prochain rendez-vous
     if (lvls.some(x => x.lvl !== 'normal')) return hello + ' Une de tes mesures de ce matin est à regarder.';
-    if (dm.sante.kind === 'conference' && !dm.sante.done) return hello + ' Ta conférence de la semaine t\'attend.';
-    if (!lvls.length) return hello + ' Commençons par tes mesures du jour ?';
-    const left = Math.max(0, A.gamify.GOALS.cardio - dm.sport.cardio) + Math.max(0, A.gamify.GOALS.force - dm.sport.force);
-    if (left > 0) return hello + ' Tout va bien. Il te reste ' + left + ' minutes de sport.';
+    const nx = A.rappels.next(id);
+    if (nx) return hello + ' ' + nx.line;
     return hello + ' Tout est fait pour aujourd\'hui. Bravo !';
   }
 
@@ -59,22 +56,14 @@
       const id = S.state.who, m = S.member(id);
       const name = S.sophieName(id);
       const dm = A.gamify.dayMissions(id);
-      const G = A.gamify.GOALS;
-      const sportFrac = (Math.min(dm.sport.cardio, G.cardio) + Math.min(dm.sport.force, G.force)) / (G.cardio + G.force);
-      const vid = dm.video.v;
       const conf = S.confDue(id);
-      const santeQ = dm.sante.kind === 'conference'
-        ? { go: 'conference', ic: 'call', b: dm.sante.done ? 'Conférence faite' : 'Ta conférence', s: dm.sante.done ? 'Merci, à la semaine prochaine' : '15 minutes avec ' + name }
-        : { go: 'sante', ic: 'health', b: dm.sante.done ? 'Mesures prises' : 'Tes mesures du matin', s: dm.sante.done ? 'Normales pour toi' : 'Température, pouls, saturation' };
-      const ex = S.exerciseToday(id);
-      const pending = m.triages.length ? m.triages[m.triages.length - 1] : null;
       const doors = [
         ['sante', 'health', 'Santé', '#7BE3C6', '#1E9E8C', S.measuredToday(id) ? 'tout va bien' : 'mesures du jour'],
         ['conference', 'call', 'Conférence', '#C9BFFF', '#6B57E8', conf.today ? 'aujourd\'hui' : 'dans ' + A.plural(conf.inDays, 'jour')],
         ['journal', 'journal', 'Journal', '#FFC7E6', '#C2569E', 'privé'],
         ['videos', 'video', 'Vidéos', '#9FD8FF', '#2F6FE0', dm.video.done ? 'vue' : '1 à voir'],
-        ['simulations', 'sim', 'Simulations', '#FFB8A8', '#D9534F', '4 urgences'],
-        ['evasion', 'escape', 'Évasion', '#A8F0E0', '#2A8FB0', '4 lieux'],
+        ['simulations', 'sim', 'Simulations', '#FFB8A8', '#D9534F', A.immersive.SIMS.length + ' urgences'],
+        ['evasion', 'escape', 'Évasion', '#A8F0E0', '#2A8FB0', A.immersive.SCENES.length + ' lieux'],
         ['defis', 'trophy', 'Défis', '#FFE3A3', '#E08A1E', A.gamify.streak(m) + ' j de suite']
       ];
       return '<div class="home">' +
@@ -84,12 +73,7 @@
         '<div class="talkbar"><button class="mic" id="hMic">' + icon('mic') + '<span>Parler à ' + esc(name) + '</span></button><button class="btn" id="hWrite">' + icon('keyboard') + 'Écrire</button></div>' +
         '<form class="ask" id="hAsk" hidden><input id="hIn" autocomplete="off" placeholder="Écris ce que tu veux faire ou voir" aria-label="Écrire à ' + esc(name) + '"><button class="icon-btn" aria-label="Envoyer">' + icon('send') + '</button></form>' +
         '<div class="chips" id="hChips">' + ['Je ne me sens pas bien', 'Mes mesures', 'Une pause au lac', 'Ma vidéo du jour'].map(c => '<button class="chip" data-say="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>' +
-        '<div class="today-head"><span>Aujourd\'hui</span><span>' + (pending && pending.d === S.day() ? 'Orientation en cours : ' + esc(pending.ficheNom || '') : '') + '</span></div>' +
-        '<div class="today">' +
-          '<button class="q' + (dm.sport.done ? ' done' : '') + '" data-go="defis"><span class="qmark">' + ringSVG(sportFrac, '#FFC870') + icon(dm.sport.done ? 'check' : 'bike') + '</span><span class="t"><b>' + (dm.sport.done ? 'Sport fait' : 'Ton sport') + '</b><small>' + (ex.cardio + ex.force) + ' sur ' + (G.cardio + G.force) + ' minutes</small></span></button>' +
-          '<button class="q' + (dm.video.done ? ' done' : '') + '" data-video><span class="qmark">' + ringSVG(dm.video.done ? 1 : 0, '#79D8FF') + icon(dm.video.done ? 'check' : 'play') + '</span><span class="t"><b>' + (vid ? esc(vid.title) : 'Vidéo du jour') + '</b><small>' + (dm.video.done ? 'Regardée' : (vid ? Math.max(1, Math.round(vid.dur / 60)) + ' min · ' + esc(vid.reason || '') : '')) + '</small></span></button>' +
-          '<button class="q' + (dm.sante.done ? ' done' : '') + '" data-go="' + santeQ.go + '"><span class="qmark">' + ringSVG(dm.sante.done ? 1 : 0, '#7BE3C6') + icon(dm.sante.done ? 'check' : santeQ.ic) + '</span><span class="t"><b>' + esc(santeQ.b) + '</b><small>' + esc(santeQ.s) + '</small></span></button>' +
-        '</div>' +
+        '<section class="day" id="hDay" aria-label="Ta journée">' + A.rappels.html(id) + '</section>' +
         '<nav class="doors" aria-label="Espaces">' + doors.map(d => '<button class="door" data-go="' + d[0] + '"><span class="disc" style="--a:' + d[3] + ';--b:' + d[4] + '">' + icon(d[1]) + '</span><span class="lab">' + d[2] + '</span><span class="sub">' + esc(d[5]) + '</span></button>').join('') + '</nav>' +
         '</div>';
     },
@@ -105,9 +89,12 @@
       $('#hWrite', node).onclick = () => { const f = $('#hAsk', node); f.hidden = !f.hidden; if (!f.hidden) $('#hIn', node).focus(); };
       $('#hAsk', node).onsubmit = e => { e.preventDefault(); const i = $('#hIn', node); const v = i.value; i.value = ''; A.talk.handle(v); };
       node.querySelectorAll('[data-say]').forEach(b => b.onclick = () => A.talk.handle(b.dataset.say));
-      node.querySelectorAll('[data-go]').forEach(b => b.onclick = () => A.go(b.dataset.go));
-      const vb = node.querySelector('[data-video]');
-      if (vb) vb.onclick = () => A.videos.play('daily');
+      node.querySelectorAll('.doors [data-go]').forEach(b => b.onclick = () => A.go(b.dataset.go));
+      // la journée : le prochain rendez-vous et le temps qui reste, mis à jour toutes les vingt secondes
+      const dayBox = $('#hDay', node);
+      const drawDay = () => { if (!dayBox.isConnected) return; dayBox.innerHTML = A.rappels.html(id); A.rappels.bind(dayBox, id); };
+      A.rappels.bind(dayBox, id);
+      this.offDay = [A.on('rappels:tick', drawDay), A.on('rappels:change', drawDay)];
       this.off = A.on('reply', r => {
         const box = $('#hChips', node);
         if (box && r.chips && r.chips.length) box.innerHTML = r.chips.map(c => '<button class="chip" data-say="' + esc(c) + '">' + esc(c) + '</button>').join('');
@@ -120,7 +107,7 @@
       if (speak) setTimeout(() => A.talk.say(text, { emotion: 'happy' }), 350);
       else { $('#hSay', node).innerHTML = text.split(/\s+/).map(w => '<span class="w on">' + esc(w) + '</span>').join(' '); }
     },
-    unmount() { A.talk.detach(this.ch); if (this.ch) this.ch.destroy(); if (this.off) this.off(); A.voice.stop(); }
+    unmount() { A.talk.detach(this.ch); if (this.ch) this.ch.destroy(); if (this.off) this.off(); (this.offDay || []).forEach(f => f()); this.offDay = null; A.voice.stop(); }
   };
   function chipToText(label, r) {
     if (label === 'Voir la fiche' && r && r.fiche) { A.ficheSheet(r.fiche); return ''; }

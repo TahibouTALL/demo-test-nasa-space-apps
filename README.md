@@ -43,11 +43,16 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
   équipage en 3D : arrêt cardiaque, allergie grave, étouffement, feu à bord, dépressurisation, fuite
   d'ammoniac, décompression après une sortie, calcul rénal avec échographie, coupure, brûlure, œil,
   saignement de nez. Une consigne courte par étape, le geste montré en animation.
-- **Vidéos** : quatorze films de trois à quatre minutes, sous-titrés et sourcés (prévention et
-  sécurité), et chaque jour le film le plus utile pour chacun (sortie prévue, sommeil en baisse,
-  premiers jours, rappel de sécurité).
-- **Défis** : points, niveaux, badges et un objectif commun à l'équipage, pour le sport, les
-  entraînements, l'évasion, les vidéos, le journal et les conférences.
+- **Ta journée** : sur l'accueil, les rendez-vous du jour à leur heure (mesures, cardio, vidéo, force,
+  conférence), le prochain mis en avant avec le temps qui reste. À l'heure, un bandeau s'affiche, et
+  une notification si l'astronaute l'a permise. Un rendez-vous manqué est simplement reproposé plus
+  tard, sans reproche.
+- **Vidéos** : quatorze films d'animation d'environ une minute, voix anglaise, sous-titres français et
+  anglais, chapitres et sources (prévention et sécurité). Chaque jour, le film le plus utile pour
+  chacun (sortie prévue, sommeil en baisse, premiers jours, rappel de sécurité).
+- **Sport et défis** : la séance du jour guidée en plein écran, des exercices animés avec les muscles
+  qui travaillent, la semaine de chaque muscle ; points, niveaux, badges et un objectif commun à
+  l'équipage, pour le sport, les entraînements, l'évasion, les vidéos, le journal et les conférences.
 - **Espace de la médecin de bord** : équipage, propositions à valider, pharmacie et simulation Monte
   Carlo des stocks, fiches (cycle de vie et test), vidéos, liaison avec la Terre, réglages de la mission.
 
@@ -108,7 +113,7 @@ redirige vers `docs/`.
 
 ```
 docs/                    site publié (généré par npm run build)
-docs/videos/             films publiés (faits par plateforme/tools/videos, gardés à la construction)
+docs/videos/             films publiés (faits par plateforme/tools/films, gardés à la construction)
 plateforme/
   src/index.html         page, avec la liste des scripts insérée à la construction
   src/css/aura.css       système visuel
@@ -116,11 +121,14 @@ plateforme/
   src/js/core/           données de référence, moteur de calcul, pharmacie, défis, état
   src/js/kb/             vocabulaire, lecture des fiches, données des fiches, moteur d'orientation
   src/js/sophie/         personnage, voix, compréhension des demandes, IA facultative
-  src/js/ui/             écrans : accueil, santé, orientation, conférence, journal, vidéos,
-                         évasion et simulations, défis, espace de la médecin de bord
+  src/js/ui/             écrans : accueil et journée (rappels), santé, orientation, conférence,
+                         journal, vidéos, évasion et simulations, sport et défis, espace de la
+                         médecin de bord ; rig.js anime les personnages du sport et des films
   kb/fiches.md           base de connaissances (export du document)
   tools/                 construction du site et des données des fiches
-  tools/videos/          fabrication des films (images 3D, schémas, voix, sous-titres)
+  tools/films/           films d'animation 2D d'une minute : textes, voix anglaise, animation,
+                         son, sous-titres français et anglais, vignettes (node publish.mjs)
+  tools/videos/          ancienne fabrication des films (images 3D, schémas, voix, sous-titres)
   tests/                 scénarios du moteur et parcours dans le navigateur
 immersion/
   src/                   scènes 3D, simulations, réalité virtuelle
@@ -142,9 +150,13 @@ température en apesanteur.
 Code sous licence MIT. three.js : licence MIT (`immersion/lib/three/LICENSE`). Intérieur de l'ISS et
 scaphandre : NASA 3D Resources (domaine public). Équipage : MakeHuman (licence CC0). Police Atkinson
 Hyperlegible Next : licence SIL Open Font (`plateforme/src/fonts/OFL.txt`). qrcode-generator : licence
-MIT (en tête de `plateforme/src/js/lib/qrcode.js`).
+MIT (en tête de `plateforme/src/js/lib/qrcode.js`). Voix des films : Kokoro (licence Apache 2.0).
 
 ## Utilisation de l'IA
 
-Le code et les textes de cette plateforme ont été produits avec l'aide d'un assistant d'intelligence
-artificielle. C'est à déclarer dans la soumission, conformément aux règles du concours.
+Le code et les textes de cette plateforme ont été écrits avec l'aide de Claude (Anthropic), un
+assistant d'intelligence artificielle, puis relus et testés par l'équipe. Les voix des films sont
+synthétisées avec Kokoro, un modèle de synthèse vocale aux poids ouverts ; les animations sont
+dessinées par le code du projet. Aucune décision médicale ne vient d'une IA : les orientations
+viennent des fiches et des règles de la base de connaissances. C'est déclaré dans la soumission,
+conformément aux règles du concours.

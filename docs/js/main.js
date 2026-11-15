@@ -10,6 +10,7 @@
     A.videos.FILMS.forEach(c => { c.mandatory = !!mand[c.id]; });
     A.brain.init();
     A.shell.init();
+    A.rappels.start();
     if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|anthropic|usercontent/.test(location.hostname)) {
       navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible ici */ });
     }

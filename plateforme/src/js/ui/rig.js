@@ -538,12 +538,29 @@
 
   // ---------------------------------------------------------------- un exercice complet (personnage + appareil), centré dans un cadre
   // dessine dans un rectangle (w x h) ; t en secondes ; hl : muscles à mettre en valeur (0..1, pulsés)
+  // hauteur du personnage, du sol au sommet de la tête ou des mains, mesurée une fois sur tout le mouvement
+  const EXT = {};
+  function extent(key, ex) {
+    if (EXT[key]) return EXT[key];
+    let m = 0;
+    for (let i = 0; i < 48; i++) {
+      const j = R.solve(ex.pose(i * 0.13));
+      const k = key === 'bike' ? 0.485 : key === 'tuck' ? 0.5 : ex.front ? Math.max(j.legL.A[1], j.legR.A[1]) + 0.058 : Math.max(j.legN.A[1], j.legF.A[1], j.legN.T[1], j.legF.T[1]) + 0.022;
+      const arms = (ex.front ? [j.armL, j.armR] : [j.armN, j.armF]).filter(Boolean);
+      const top = Math.min(j.H[1] - L.head * 1.35, ...arms.map(a => a.W[1] - 0.04));
+      m = Math.max(m, k - top);
+    }
+    return (EXT[key] = m);
+  }
+
   R.drawExercise = function (ctx, key, t, w, h, opts) {
     opts = opts || {};
     const ex = R.EX[key]; if (!ex) return;
     const pose = ex.pose(t);
-    const s = Math.min(w / 1.2, h / 1.1) * (opts.zoom || 1);
     const cx = w / 2, floor = h * 0.86;          // le sol de l'appareil
+    let s = Math.min(w / 1.2, h / 1.1) * (opts.zoom || 1);
+    // la tête et les mains restent dans le cadre, quel que soit le format de l'écran
+    if (key !== 'bench' && key !== 'plank') s = Math.min(s, (floor - h * 0.05) / extent(key, ex));
     const pulse = 0.6 + 0.4 * (0.5 + 0.5 * sin(t * 4));
     const hl = {}; for (const k in (opts.hl || {})) hl[k] = opts.hl[k] * pulse;
     const j = R.solve(pose);
