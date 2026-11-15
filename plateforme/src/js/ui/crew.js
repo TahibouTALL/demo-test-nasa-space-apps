@@ -137,6 +137,8 @@
     spo2: { label: 'Saturation', icon: 'drop', unit: '%', d: 0, color: '#79D8FF' },
     bp: { label: 'Tension', title: 'Tension artérielle', icon: 'gauge', unit: 'mmHg', d: 0, color: '#FF9FCB', color2: '#C9A6FF' },
     glu: { label: 'Glycémie', title: 'Glycémie à jeun', icon: 'glucose', unit: 'mg/dL', d: 0, color: '#FFD27A' },
+    mass: { label: 'Masse', title: 'Masse corporelle', icon: 'scale', unit: 'kg', d: 1, color: '#9BE1C9' },
+    water: { label: 'Eau', icon: 'cup', unit: 'L', d: 2, color: '#7CC8FF' },
     sleep: { label: 'Sommeil', icon: 'moon', unit: 'h', d: 1, color: '#B3A6FF' }
   };
   // petite courbe d'une ou de plusieurs séries, sur la même échelle, avec la plage normale de chacune
@@ -181,7 +183,19 @@
       const anyBad = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
       const conf = S.confDue(id);
       const tile = (k, value, lv, l, sp) => '<button class="vital" data-detail="' + k + '"><span class="k">' + icon(MET[k].icon) + MET[k].label + '</span><span class="v">' + value + '<small>' + MET[k].unit + '</small></span><span class="s"><i class="dot ' + (lv[0] === 'ok' ? '' : lv[0]) + '"></i>' + lv[1] + (l ? ' · ' + A.dayLabel(l.d, S.day()) : '') + '</span>' + sp + '</button>';
-      const vit = ['temp', 'hr', 'spo2', 'bp', 'glu', 'sleep'].map(k => {
+      const vit = ['temp', 'hr', 'spo2', 'bp', 'glu', 'mass', 'water', 'sleep'].map(k => {
+        if (k === 'mass') {
+          const arr = m.measures.mass.slice(-10), l = arr[arr.length - 1];
+          const pre = S.profile(id).pre.mass.mean, delta = l ? l.v - pre : 0, pct = -delta / pre * 100;
+          const lv = !l ? ['warn', 'À prendre cette semaine'] : pct >= 5 ? ['warn', 'En baisse de ' + A.num(pct, 0) + ' %'] : levelWord(l.lvl);
+          return tile(k, l ? A.num(l.v, 1) : '·', lv, l, spark(arr, MET.mass.color, S.reference(id, 'mass')));
+        }
+        if (k === 'water') {
+          const ml = S.waterToday(id), goal = 2500;
+          const days = (m.water || []).slice(-7).map(x => ({ v: x.ml / 1000 }));
+          const lv = ml >= goal ? ['ok', 'Objectif atteint'] : S.minute() >= 18 * 60 && ml < 1500 ? ['warn', 'Bois un peu plus'] : ['ok', 'Encore ' + A.num((goal - ml) / 1000, 2) + ' L'];
+          return '<button class="vital" data-water><span class="k">' + icon('cup') + 'Eau</span><span class="v">' + A.num(ml / 1000, 2) + '<small>L sur 2,5</small></span><span class="s"><i class="dot ' + (lv[0] === 'ok' ? '' : lv[0]) + '"></i>' + lv[1] + '</span>' + spark(days, MET.water.color, { lo: 2.5, hi: 3.5 }) + '</button>';
+        }
         if (k === 'bp') {
           const as = m.measures.sys.slice(-14), ad = m.measures.dia.slice(-14);
           const ls = as[as.length - 1], ld = ad[ad.length - 1];
@@ -217,6 +231,8 @@
       node.querySelector('[data-triage]').onclick = () => A.go('triage');
       node.querySelectorAll('[data-go]').forEach(b => b.onclick = () => A.go(b.dataset.go));
       node.querySelectorAll('[data-detail]').forEach(b => b.onclick = () => detailSheet(b.dataset.detail));
+      const wb = node.querySelector('[data-water]');
+      if (wb) wb.onclick = () => waterSheet();
       if (params.mesure) setTimeout(() => measureSheet(params.mesure), 300);
     }
   };
@@ -247,6 +263,7 @@
       spo2: 'Une saturation basse fait d\'abord vérifier le capteur et l\'oxygène de la cabine, puis le corps. En dessous de 90 %, c\'est toujours une alerte.',
       bp: 'En apesanteur, les liquides remontent vers le haut du corps et les vaisseaux se détendent : la tension baisse d\'environ 8 à 10 mmHg (Norsk, 2015). Ta plage normale en tient compte, avec ta référence d\'avant le départ. Au-delà de 180/120, c\'est toujours une alerte.',
       glu: 'À jeun, une fois par semaine. En vol, le corps peut devenir moins sensible à l\'insuline (Hughson, 2016) : une hausse lente, semaine après semaine, compte plus qu\'une valeur isolée. Sous 54 mg/dL, c\'est une hypoglycémie : du sucre rapide tout de suite.',
+      mass: 'Une fois par semaine. En vol, on mange souvent moins que ce dont on a besoin : sur Mir, deux astronautes ont perdu plus de 10 % de leur poids en quatre mois (Smith, 2001). Une perte de 5 % depuis le départ se signale à Keiko.',
       sleep: 'Environ 6 heures par nuit, c\'est la moyenne en mission. Un sommeil court plusieurs nuits de suite se rattrape mieux en en parlant tôt.'
     }[k];
     A.sheet(MET[k].title || MET[k].label, '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto">' + svg + '</svg><p class="muted" style="margin-top:14px">' + explain + '</p>' + (k !== 'sleep' ? '<div class="row" style="margin-top:18px"><button class="btn primary" id="dMeasure">' + icon('plus') + 'Prendre une mesure</button></div>' : ''), { wide: true });
@@ -254,19 +271,40 @@
     if (b) b.onclick = () => { A.closeSheet(); measureSheet(k); };
   }
 
+  // l'eau du jour : un verre, une gourde, et l'objectif de deux litres et demi
+  function waterSheet() {
+    const id = S.state.who, goal = 2500;
+    const sh = A.sheet('L\'eau d\'aujourd\'hui', '<div class="stack-lg water"><div class="w-ring" id="wRing"></div>' +
+      '<p class="m-hint">' + icon('info') + '<span>En apesanteur, on a moins soif, et le calcium sorti des os passe dans les urines : boire environ deux litres et demi par jour éloigne les calculs rénaux.</span></p>' +
+      '<div class="row" id="wAdd"><button class="btn primary big" data-ml="250">' + icon('plus') + 'Un verre, 25 cl</button><button class="btn big" data-ml="500">' + icon('plus') + 'Une gourde, 50 cl</button></div>' +
+      '<button class="btn ghost small" data-ml="-250">Enlever un verre</button></div>');
+    const draw = () => {
+      const ml = S.waterToday(id), f = Math.min(1, ml / goal), r = 52, c = 2 * Math.PI * r;
+      sh.querySelector('#wRing').innerHTML = '<svg viewBox="0 0 132 132" aria-hidden="true"><circle cx="66" cy="66" r="' + r + '" stroke="rgba(255,255,255,.1)" stroke-width="10" fill="none"/><circle cx="66" cy="66" r="' + r + '" stroke="#7CC8FF" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + (c * (1 - f)).toFixed(1) + '" transform="rotate(-90 66 66)" style="transition:stroke-dashoffset .6s var(--ease)"/></svg><div class="w-val"><b>' + A.num(ml / 1000, 2) + '</b><span>litre' + (ml >= 2000 ? 's' : '') + ' sur 2,5</span></div>';
+    };
+    draw();
+    sh.querySelectorAll('[data-ml]').forEach(b => b.onclick = () => {
+      const before = S.waterToday(id), after = S.addWater(id, +b.dataset.ml);
+      draw();
+      if (before < goal && after >= goal) { A.toast(icon('check') + 'Deux litres et demi : objectif atteint pour aujourd\'hui.', { kind: 'gold' }); A.dockSay('Bravo, tu as bu ce qu\'il faut aujourd\'hui.', 'happy'); }
+      A.render();
+    });
+  }
+
   // la mesure : un conseil pour bien la prendre, la valeur, ce qui s'est passé juste avant
-  const SEG = ['temp', 'hr', 'spo2', 'bp', 'glu'];
+  const SEG = ['temp', 'hr', 'spo2', 'bp', 'glu', 'mass'];
   const PARTS = k => k === 'bp' ? ['sys', 'dia'] : [k];
-  const DEF = { temp: 37.2, hr: 62, spo2: 98, sys: 112, dia: 70, glu: 90 };
+  const DEF = { temp: 37.2, hr: 62, spo2: 98, sys: 112, dia: 70, glu: 90, mass: 72 };
   const HINT = {
     temp: 'Le thermomètre sous la langue, la bouche fermée, pendant une minute.',
     hr: 'Au repos, assis depuis cinq minutes.',
     spo2: 'Le capteur au bout du doigt, la main immobile et bien chaude.',
     bp: 'Assis depuis cinq minutes, le bras posé à hauteur du cœur, sans parler.',
-    glu: 'À jeun, le matin, une fois par semaine : une goutte de sang au bout du doigt.'
+    glu: 'À jeun, le matin, une fois par semaine : une goutte de sang au bout du doigt.',
+    mass: 'Une fois par semaine, le matin à jeun. En apesanteur, une balance ne pèse rien : l\'appareil du bord mesure la masse par un mouvement de ressort.'
   };
   const CTXL = { effort: 'J\'ai fait du sport', stress: 'J\'ai été stressé', antipyretique: 'J\'ai pris un médicament contre la fièvre', repas: 'J\'ai mangé ou bu sucré' };
-  const AGAIN = { temp: 'Reprends cette mesure dans deux heures.', hr: 'Reprends-la après dix minutes de repos.', spo2: 'Vérifie le capteur et reprends-la.', bp: 'Reprends-la après cinq minutes assis au calme.', glu: 'Reprends-la demain matin, à jeun.' };
+  const AGAIN = { temp: 'Reprends cette mesure dans deux heures.', hr: 'Reprends-la après dix minutes de repos.', spo2: 'Vérifie le capteur et reprends-la.', bp: 'Reprends-la après cinq minutes assis au calme.', glu: 'Reprends-la demain matin, à jeun.', mass: 'Reprends-la la semaine prochaine, à la même heure.' };
   // un bouton qu'on garde appuyé fait défiler la valeur
   function hold(btn, fn) {
     let t1 = null, t2 = null;
@@ -279,6 +317,7 @@
   function measureSheet(metric) {
     const id = S.state.who;
     let k = SEG.includes(metric) ? metric : (metric === 'sys' || metric === 'dia') ? 'bp' : 'temp';
+    const pre = S.profile(id).pre;
     let vals = {}, ctx = {};
     const sh = A.sheet('Prendre une mesure',
       '<div class="stack-lg"><div class="seg" role="group" aria-label="Mesure" id="mSeg">' + SEG.map(x => '<button data-k="' + x + '" aria-pressed="' + (x === k) + '">' + MET[x].label + '</button>').join('') + '</div>' +
@@ -290,7 +329,7 @@
     const draw = () => {
       const parts = PARTS(k);
       vals = {}; ctx = {};
-      parts.forEach(mm => { const l = S.lastMeasure(id, mm); vals[mm] = l ? l.v : DEF[mm]; });
+      parts.forEach(mm => { const l = S.lastMeasure(id, mm); vals[mm] = l ? l.v : (pre[mm] ? pre[mm].mean : DEF[mm]); });
       sh.querySelector('#mHint').innerHTML = icon('info') + '<span>' + esc(HINT[k]) + '</span>';
       sh.querySelector('#mSteps').innerHTML = parts.map(mm => (parts.length > 1 ? '<p class="m-lab">' + (mm === 'sys' ? 'Le grand chiffre, la systolique' : 'Le petit chiffre, la diastolique') + '</p>' : '') +
         '<div class="stepper' + (parts.length > 1 ? ' sm' : '') + '"><button class="icon-btn" data-minus="' + mm + '" aria-label="Moins">' + icon('minus') + '</button><div class="val" data-val="' + mm + '" aria-live="polite"></div><button class="icon-btn" data-plus="' + mm + '" aria-label="Plus">' + icon('plus') + '</button></div>').join('');
@@ -332,16 +371,22 @@
       } else if (k === 'glu') {
         text = (terr && !context.repas ? 'Sur Terre, ' + vals.glu + ' mg/dL à jeun serait une ' + terr.label + '. ' : '') + (context.repas ? 'Après un repas, la glycémie monte : elle compte surtout à jeun. ' : '');
       }
+      let shown = ev.level, own = false;
+      if (k === 'mass') {
+        const d = vals.mass - pre.mass.mean, pct = -d / pre.mass.mean * 100;
+        text = 'Depuis le départ : ' + (d > 0 ? '+' : '') + A.num(d, 1) + ' kg. ';
+        if (pct >= 5 && shown === 'normal') { shown = 'vigilance'; own = true; text += 'C\'est une perte à surveiller : parles-en à Keiko, et à ta conférence de la semaine, côté alimentation.'; }
+      }
       if (ctx.antipyretique && k === 'temp') text += 'Attention : un médicament contre la fièvre peut cacher une fièvre. ';
-      text += ev.level === 'normal' ? 'Pour toi, aujourd\'hui, c\'est normal.' : ev.level === 'vigilance' ? 'C\'est un peu en dehors de ta plage habituelle. ' + AGAIN[k] : (k === 'glu' && vals.glu < 54 ? 'Prends tout de suite 15 g de sucre rapide, puis reprends la mesure dans 15 minutes. Je préviens Keiko.' : 'C\'est loin de ta plage habituelle. Je préviens Keiko.');
-      box.innerHTML = '<div class="panel tight" style="background:' + (ev.level === 'normal' ? 'rgba(123,227,198,.1)' : 'rgba(255,182,92,.12)') + '"><div class="row"><i class="dot ' + (ev.level === 'normal' ? '' : 'warn') + '"></i><b>' + (ev.level === 'normal' ? 'Normal pour toi' : 'À regarder') + '</b></div><p style="margin-top:8px">' + esc(text.trim()) + '</p></div>';
+      if (!own) text += ev.level === 'normal' ? 'Pour toi, aujourd\'hui, c\'est normal.' : ev.level === 'vigilance' ? 'C\'est un peu en dehors de ta plage habituelle. ' + AGAIN[k] : (k === 'glu' && vals.glu < 54 ? 'Prends tout de suite 15 g de sucre rapide, puis reprends la mesure dans 15 minutes. Je préviens Keiko.' : 'C\'est loin de ta plage habituelle. Je préviens Keiko.');
+      box.innerHTML = '<div class="panel tight" style="background:' + (shown === 'normal' ? 'rgba(123,227,198,.1)' : 'rgba(255,182,92,.12)') + '"><div class="row"><i class="dot ' + (shown === 'normal' ? '' : 'warn') + '"></i><b>' + (shown === 'normal' ? 'Normal pour toi' : 'À regarder') + '</b></div><p style="margin-top:8px">' + esc(text.trim()) + '</p></div>';
       // la mesure suivante du matin, sans refermer
       const i = ['temp', 'hr', 'spo2', 'bp'].indexOf(k);
       const nx = i >= 0 && i < 3 ? ['temp', 'hr', 'spo2', 'bp'][i + 1] : null;
       sh.querySelector('#mAct').innerHTML = (nx ? '<button class="btn primary big" id="mNext">' + icon('next') + 'Ensuite : ' + MET[nx].label.toLowerCase() + '</button>' : '') + '<button class="btn ' + (nx ? 'ghost' : 'primary') + ' big" id="mDone">' + icon('check') + 'Terminé</button>';
       if (nx) sh.querySelector('#mNext').onclick = () => pick(nx);
       sh.querySelector('#mDone').onclick = () => { A.closeSheet(); A.render(); };
-      A.dockSay(text.trim(), ev.level === 'normal' ? 'happy' : 'concerned');
+      A.dockSay(text.trim(), shown === 'normal' ? 'happy' : 'concerned');
       A.celebrate(results[0].reward, 'mesure du jour');
     }
     draw();

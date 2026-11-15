@@ -25,7 +25,8 @@
   function parts(id) {
     const m = S.member(id), G = A.gamify.GOALS, w = week(id);
     const sl = m.measures.sleep.slice(-7), sleepAvg = sl.reduce((a, x) => a + x.v, 0) / Math.max(1, sl.length);
-    const hr = last(id, 'hr'), sys = last(id, 'sys'), dia = last(id, 'dia'), spo2 = last(id, 'spo2'), glu = last(id, 'glu'), temp = last(id, 'temp');
+    const hr = last(id, 'hr'), sys = last(id, 'sys'), dia = last(id, 'dia'), spo2 = last(id, 'spo2'), glu = last(id, 'glu'), temp = last(id, 'temp'), mass = last(id, 'mass');
+    const pre = S.profile(id).pre.mass.mean, loss = mass ? (pre - mass.v) / pre * 100 : 0, water = S.waterToday(id);
     const n = (v, d) => A.num(v, d || 0);
     return [
       { key: 'tete', name: 'Cerveau, sommeil et moral',
@@ -51,17 +52,18 @@
         st: recent(spo2, 3) ? lvl(spo2.lvl) : 'na',
         you: spo2 ? 'Saturation ' + n(spo2.v) + ' % (' + A.dayLabel(spo2.d, S.day()).toLowerCase() + ').' : 'Pas encore de mesure.',
         acts: [['Ma saturation', 'drop', () => A.measureSheet('spo2')]] },
-      { key: 'ventre', name: 'Digestion et sucre',
+      { key: 'ventre', name: 'Digestion et nutrition',
         role: 'L\'estomac et l\'intestin tirent l\'énergie des repas ; l\'insuline fait entrer le sucre dans les cellules.',
-        space: 'En vol, le corps peut devenir moins sensible à l\'insuline. Une glycémie à jeun qui monte lentement, semaine après semaine, se repère tôt.', src: 'Hughson, 2016',
-        st: glu && S.day() - glu.d <= 10 ? lvl(glu.lvl) : 'warn',
-        you: glu ? 'Glycémie à jeun ' + n(glu.v) + ' mg/dL (' + A.dayLabel(glu.d, S.day()).toLowerCase() + ')' + (S.day() - glu.d >= 7 ? ', à reprendre cette semaine.' : '.') : 'Pas encore de glycémie : à prendre à jeun, une fois par semaine.',
-        acts: [['Ma glycémie', 'glucose', () => A.measureSheet('glu')]] },
+        space: 'En vol, on mange souvent moins que ce dont on a besoin : sur Mir, deux astronautes ont perdu plus de 10 % de leur poids en quatre mois. Le corps peut aussi devenir moins sensible à l\'insuline.', src: 'Smith, 2001 ; Hughson, 2016',
+        st: worstOf(glu && S.day() - glu.d <= 10 ? lvl(glu.lvl) : 'warn', loss >= 5 ? 'warn' : 'ok'),
+        you: (mass ? 'Masse ' + A.num(mass.v, 1) + ' kg, ' + (loss > 0 ? A.num(loss, 1) + ' % de moins' : 'pas de perte') + ' depuis le départ' + (loss >= 5 ? ', à surveiller' : '') + '. ' : '') + (glu ? 'Glycémie à jeun ' + n(glu.v) + ' mg/dL (' + A.dayLabel(glu.d, S.day()).toLowerCase() + ')' + (S.day() - glu.d >= 7 ? ', à reprendre cette semaine.' : '.') : 'Glycémie à prendre à jeun, une fois par semaine.'),
+        acts: [['Ma masse', 'scale', () => A.measureSheet('mass')], ['Ma glycémie', 'glucose', () => A.measureSheet('glu')]] },
       { key: 'reins', name: 'Reins',
         role: 'Ils filtrent le sang et fabriquent l\'urine.',
         space: 'Le calcium qui sort des os passe dans les urines, et on a moins soif en apesanteur : le risque de calcul rénal monte dès l\'arrivée. Environ deux litres et demi d\'eau par jour.', src: 'Whitson, NASA',
-        st: 'na', you: 'Pas de mesure à bord. Une douleur brutale dans le bas du dos ou sur le côté : préviens Keiko.',
-        acts: [['La vidéo sur l\'eau', 'play', () => A.go('videos/eau')]] },
+        st: water >= 2500 ? 'ok' : S.minute() >= 18 * 60 && water < 1500 ? 'warn' : 'na',
+        you: 'Eau bue aujourd\'hui : ' + A.num(water / 1000, 2) + ' L sur 2,5. Une douleur brutale dans le bas du dos ou sur le côté : préviens Keiko.',
+        acts: [['J\'ai bu un verre', 'cup', () => { S.addWater(id, 250); A.toast(icon('check') + 'Un verre de plus : ' + A.num(S.waterToday(id) / 1000, 2) + ' L aujourd\'hui.'); A.render(); }], ['La vidéo sur l\'eau', 'play', () => A.go('videos/eau')]] },
       { key: 'os', name: 'Os',
         role: 'Ils portent le corps, protègent les organes et gardent le calcium.',
         space: 'Sans poids à porter, les os perdent 1 à 1,5 % de leur densité par mois. Seul l\'exercice contre une charge les protège.', src: 'NASA, risque osseux',
@@ -74,10 +76,16 @@
         st: (w.cardio + w.force) >= (G.cardio + G.force) * 7 * 0.7 ? 'ok' : 'warn',
         you: (w.cardio + w.force) + ' minutes de sport sur 7 jours, pour ' + ((G.cardio + G.force) * 7) + ' conseillées.',
         acts: [['Ma séance', 'bike', () => A.go('defis')]] },
+      { key: 'defenses', name: 'Défenses du corps',
+        role: 'Les globules blancs et les ganglions repèrent et combattent les microbes.',
+        space: 'En vol, le système immunitaire se dérègle : des virus endormis, comme celui de l\'herpès, se réveillent plus souvent, et la peau réagit davantage.', src: 'Crucian, 2018',
+        st: temp && recent(temp, 3) ? lvl(temp.lvl) : 'na',
+        you: temp ? 'Température ' + A.num(temp.v, 1) + ' °C (' + A.dayLabel(temp.d, S.day()).toLowerCase() + '), ' + (lvl(temp.lvl) === 'ok' ? 'pas de fièvre pour toi.' : 'à regarder.') : 'Pas encore de température.',
+        acts: [['Je ne me sens pas bien', 'hand', () => A.go('triage')], ['Ma température', 'temp', () => A.measureSheet('temp')]] },
       { key: 'peau', name: 'Peau',
         role: 'Elle protège de l\'extérieur et aide à garder la bonne température.',
         space: 'Les éruptions et irritations de la peau sont parmi les petits problèmes les plus fréquents en vol : elles touchent la grande majorité des astronautes en six mois.', src: 'Fiches AURA, modèle IMM de la NASA',
-        st: 'na', you: (temp ? 'Température ' + A.num(temp.v, 1) + ' °C, ' + (lvl(temp.lvl) === 'ok' ? 'normale pour toi' : 'à regarder') + '. ' : '') + 'Pas de mesure de la peau à bord.',
+        st: 'na', you: 'Pas de mesure de la peau à bord. Une rougeur, des démangeaisons ou une plaie qui ne guérit pas : dis-le à Sophie.',
         acts: [['Un problème de peau', 'hand', () => A.go('triage', { t: 'j\'ai un problème de peau' })]] }
     ];
   }
@@ -128,6 +136,7 @@
     ventre: '<path d="M-.02 -.135 C.03 -.15 .07 -.13 .066 -.1 C.062 -.075 .03 -.07 .005 -.08 C-.02 -.088 -.045 -.1 -.04 -.12 C-.036 -.13 -.028 -.133 -.02 -.135 Z"/>',
     reins: '<path d="M-.09 -.098 C-.1 -.12 -.084 -.14 -.07 -.13 C-.064 -.124 -.07 -.112 -.066 -.102 C-.062 -.092 -.066 -.078 -.076 -.078 C-.084 -.078 -.088 -.09 -.09 -.098 Z"/><path d="M.09 -.098 C.1 -.12 .084 -.14 .07 -.13 C.064 -.124 .07 -.112 .066 -.102 C.062 -.092 .066 -.078 .076 -.078 C.084 -.078 .088 -.09 .09 -.098 Z"/>',
     os: '<g stroke-linecap="round" fill="none">' + [-1, 1].map(s => '<line x1="' + s * 0.066 + '" y1=".07" x2="' + s * 0.074 + '" y2=".235" stroke-width=".022"/><line x1="' + s * 0.076 + '" y1=".27" x2="' + s * 0.079 + '" y2=".44" stroke-width=".018"/><circle cx="' + s * 0.075 + '" cy=".253" r=".017" stroke="none"/>').join('') + '</g>',
+    defenses: [[-0.032, -0.352], [0.032, -0.352], [-0.118, -0.268], [0.118, -0.268], [-0.052, 0.04], [0.052, 0.04]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r=".0115"/>').join(''),
     muscles: '<g stroke-linecap="round" fill="none">' + [-1, 1].map(s => '<line x1="' + s * 0.172 + '" y1="-.255" x2="' + s * 0.193 + '" y2="-.1" stroke-width=".052"/><ellipse cx="' + s * 0.16 + '" cy="-.285" rx=".038" ry=".034" stroke="none"/>').join('') + '</g>'
   };
   const SIL = '<circle cx="0" cy="-.415" r=".072"/>' +
@@ -138,7 +147,7 @@
   function figure(list, sel) {
     const by = Object.fromEntries(list.map(p => [p.key, p]));
     // ordre de dessin : du fond vers l'avant
-    const order = ['muscles', 'os', 'reins', 'poumons', 'ventre', 'coeur', 'tete', 'yeux'];
+    const order = ['muscles', 'os', 'reins', 'poumons', 'ventre', 'coeur', 'defenses', 'tete', 'yeux'];
     const orgs = order.map(k => {
       const p = by[k], c = COL[p.st];
       return '<g class="org' + (k === sel ? ' on' : '') + '" data-o="' + k + '" tabindex="0" role="button" aria-pressed="' + (k === sel) + '" aria-label="' + esc(p.name + ', ' + WORD[p.st].toLowerCase()) + '" style="--c:' + c + '" fill="' + c + '" stroke="' + c + '" stroke-width="0">' +

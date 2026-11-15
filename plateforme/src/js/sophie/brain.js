@@ -205,6 +205,13 @@
       if (min && min > 0 && min <= 240) return { say: 'Bravo ! ' + A.dur(min) + ' de ' + (sportType === 'velo' ? 'vélo' : sportType === 'tapis' ? 'tapis' : 'musculation') + ', c\'est noté.', emotion: 'happy', action: { type: 'sport', sport: sportType, min } };
       return { say: 'Combien de minutes as-tu fait ?', action: { type: 'go', route: 'defis', params: { log: sportType } } };
     }
+    // l'eau bue, la masse
+    if (/\b(j ai bu|bu un verre|bu une gourde|bu de l eau|un verre d eau)\b/.test(t)) {
+      const ml = /\b(gourde|50 cl|demi litre)\b/.test(t) ? 500 : 250;
+      return { say: 'C\'est noté, ' + (ml === 500 ? 'une gourde' : 'un verre') + ' de plus.', emotion: 'happy', action: { type: 'water', ml } };
+    }
+    if (/\b(combien (j ai|ai je) bu|mon eau)\b/.test(t)) { const ml = A.store.waterToday(A.store.state.who); return { say: 'Aujourd\'hui, tu as bu ' + A.num(ml / 1000, 2).replace('.', ',') + ' litre' + (ml >= 2000 ? 's' : '') + ' sur deux et demi.', action: { type: 'go', route: 'sante' } }; }
+    if (/\b(mon poids|ma masse|me peser|peser)\b/.test(t)) return { say: 'D\'accord, on prend ta masse : le matin, à jeun, une fois par semaine.', action: { type: 'measure', metric: 'mass' } };
     // mesures
     if (/\b(prendre|mesurer|noter|enregistrer|ajouter)\b.*\b(temperature|pouls|saturation|mesure|tension)\b/.test(t)) {
       const metric = /pouls/.test(t) ? 'hr' : /saturation/.test(t) ? 'spo2' : /tension/.test(t) ? 'bp' : /glycemie|sucre/.test(t) ? 'glu' : 'temp';

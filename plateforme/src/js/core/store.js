@@ -6,7 +6,7 @@
   const A = root.AURA;
   const DATA = root.AURA_DATA, E = root.AURA_ENGINE, PH = root.AURA_PHARMA;
   const KEY = 'aura-v2';
-  const VERSION = 4;
+  const VERSION = 5;
 
   // Compléments de démonstration : sexe (pour les fiches propres à un sexe), couleur, appareils
   const CREW_EXTRA = {
@@ -16,7 +16,7 @@
     a4: { sexe: 'H', hue: 152, conf: 5 }
   };
   const TODAY = 58;
-  const METRICS = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'];
+  const METRICS = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu', 'mass'];
 
   const S = { state: null };
   A.store = S;
@@ -30,7 +30,8 @@
     const ex = CREW_EXTRA[c.id];
     const filters = {};
     METRICS.forEach(m => { filters[m] = E.initFilter(DATA.metrics[m], c.pre[m]); });
-    const measures = { temp: [], hr: [], spo2: [], sys: [], dia: [], glu: [], sleep: [], mood: [] };
+    const measures = { temp: [], hr: [], spo2: [], sys: [], dia: [], glu: [], mass: [], sleep: [], mood: [] };
+    const water = [];
     const exercise = [];
     for (let d = 1; d < TODAY; d++) {
       const t = d + 7 / 24;
@@ -43,6 +44,9 @@
       };
       // la glycémie se mesure à jeun, une fois par semaine
       if ((d + i * 2) % 7 === 0) vals.glu = Math.round(c.truth.glu + g() * 4);
+      // la masse, une fois par semaine : une perte lente chez certains
+      if ((d + i * 3) % 7 === 1) vals.mass = +(c.pre.mass.mean - c.truth.massLoss * d / TODAY + g() * 0.25).toFixed(1);
+      water.push({ d, ml: Math.round((c.truth.water + g() * 0.3) * 4) * 250 });
       METRICS.forEach(m => {
         if (vals[m] === undefined) return;
         const res = E.processMeasurement(DATA.metrics[m], filters[m], { t, value: vals[m] });
@@ -81,7 +85,7 @@
     return {
       id: c.id, sexe: ex.sexe, hue: ex.hue, confDay: ex.conf,
       prefs: { sophieName: 'Sophie', voice: 'f', guided: true, rate: 1 },
-      filters, measures, exercise, videos, journal,
+      filters, measures, exercise, videos, journal, water,
       xp: 0, badges: {}, sims: {}, escapes: [], conferences: [
         { id: 'c' + c.id + '0', d: TODAY - 7 + (ex.conf === 0 ? 0 : 0), mode: 'voix', resume: 'Semaine calme, appétit correct, quelques réveils nocturnes.', partage: true }
       ],
@@ -207,6 +211,18 @@
       A.emit('measure', { id, metric, res });
     }
     return res;
+  };
+  // l'eau bue dans la journée, en millilitres
+  S.waterToday = id => { const w = S.member(id).water || []; const t = w.find(x => x.d === S.day()); return t ? t.ml : 0; };
+  S.addWater = (id, ml) => {
+    const m = S.member(id);
+    m.water = m.water || [];
+    let t = m.water.find(x => x.d === S.day());
+    if (!t) { t = { d: S.day(), ml: 0 }; m.water.push(t); }
+    t.ml = Math.max(0, t.ml + ml);
+    S.save();
+    A.emit('water', { id, ml: t.ml });
+    return t.ml;
   };
   S.addSimple = (id, metric, value) => { // sommeil, humeur
     const m = S.member(id);

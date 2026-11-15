@@ -38,6 +38,11 @@
       ref: 'American Diabetes Association : glycémie à jeun normale de 70 à 99 mg/dL, prédiabète de 100 à 125, diabète à partir de 126 ; hypoglycémie sous 70 mg/dL, sévère sous 54.',
       url: 'https://diabetes.org/about-diabetes/diagnosis'
     },
+    smith2001: {
+      label: 'Smith et al., 2001',
+      ref: 'Smith S.M. et al. « Nutritional status assessment in semiclosed environments: ground-based and space flight studies in humans ». The Journal of Nutrition 131(7) (2001). Sur Mir, deux astronautes ont mangé 40 à 50 % de leurs besoins et perdu plus de 10 % de leur masse en quatre mois ; la vitamine D a baissé de plus de 40 %.',
+      url: 'https://ntrs.nasa.gov/citations/20040112382'
+    },
     hrpHazards: {
       label: 'NASA, les cinq dangers du vol habité',
       ref: 'NASA Human Research Program, « 5 Hazards of Human Spaceflight » : radiations, isolement et confinement, distance de la Terre, champs de gravité, environnement hostile et fermé.',
@@ -402,6 +407,32 @@
         repas: { offset: 20, tol: 3 },
         effort: { offset: -4, tol: 1.3 }
       }
+    },
+    mass: {
+      id: 'mass',
+      label: 'Masse corporelle',
+      short: 'Masse',
+      lc: 'masse',
+      unit: 'kg',
+      decimals: 1,
+      step: 0.1,
+      popMean: 72,
+      popSd: 10,
+      withinSd: 0.8,
+      q: 0.01,
+      driftAllow: 0.6,
+      spatial: {
+        kind: 'none', max: 0, sd: 0.4, source: 'smith2001',
+        crew: 'en vol, on mange souvent moins que ce dont on a besoin : une perte lente se repère semaine après semaine',
+        doctor: 'aucun décalage attendu ; sur Mir, apports de 40 à 50 % des besoins et perte de plus de 10 % de la masse en 4 mois (Smith et al., 2001) : suivre l’écart à la masse d’avant le départ'
+      },
+      terrestrial: {
+        low: 0, high: 1000, lowLabel: '', highLabel: '', alertHigh: null, alertLow: null,
+        text: 'pas de repère fixe : la masse se lit par rapport à celle d’avant le départ'
+      },
+      hard: null,
+      plausible: { min: 30, max: 200 },
+      context: {}
     }
   };
 
@@ -513,27 +544,27 @@
     {
       id: 'a1', name: 'Aminata Sarr', role: 'Commandante', fictif: true,
       backup: 'Suppléante de la médecin de bord, formée aux premiers secours (environ 40 heures de formation médicale)',
-      pre: { temp: { mean: 36.7, n: 20 }, hr: { mean: 56, n: 20 }, spo2: { mean: 98.1, n: 20 }, sys: { mean: 114, n: 20 }, dia: { mean: 72, n: 20 }, glu: { mean: 86, n: 6 } },
-      truth: { tempRise: 1.05, hr: 57, spo2: 98.0, sys: 106, dia: 64, glu: 88, rt: 258 },
+      pre: { temp: { mean: 36.7, n: 20 }, hr: { mean: 56, n: 20 }, spo2: { mean: 98.1, n: 20 }, sys: { mean: 114, n: 20 }, dia: { mean: 72, n: 20 }, glu: { mean: 86, n: 6 }, mass: { mean: 62.4, n: 8 } },
+      truth: { tempRise: 1.05, hr: 57, spo2: 98.0, sys: 106, dia: 64, glu: 88, massLoss: 0.6, water: 2.4, rt: 258 },
       wb: { mood: 4.1, stress: 2.4, sleep: 6.4, load: 3.2 }
     },
     {
       id: 'a2', name: 'Lucas Moreau', role: 'Ingénieur de vol', fictif: true,
-      pre: { temp: { mean: 36.9, n: 20 }, hr: { mean: 63, n: 20 }, spo2: { mean: 97.6, n: 20 }, sys: { mean: 122, n: 20 }, dia: { mean: 78, n: 20 }, glu: { mean: 92, n: 6 } },
-      truth: { tempRise: 0.95, hr: 64, spo2: 97.5, sys: 113, dia: 69, glu: 94, rt: 271 },
+      pre: { temp: { mean: 36.9, n: 20 }, hr: { mean: 63, n: 20 }, spo2: { mean: 97.6, n: 20 }, sys: { mean: 122, n: 20 }, dia: { mean: 78, n: 20 }, glu: { mean: 92, n: 6 }, mass: { mean: 78.0, n: 8 } },
+      truth: { tempRise: 0.95, hr: 64, spo2: 97.5, sys: 113, dia: 69, glu: 94, massLoss: 1.1, water: 2.2, rt: 271 },
       wb: { mood: 3.8, stress: 2.8, sleep: 6.1, load: 3.6 }
     },
     {
       id: 'a3', name: 'Keiko Tanaka', role: 'Médecin de bord', fictif: true,
-      pre: { temp: { mean: 36.6, n: 20 }, hr: { mean: 59, n: 20 }, spo2: { mean: 98.0, n: 20 }, sys: { mean: 108, n: 20 }, dia: { mean: 68, n: 20 }, glu: { mean: 84, n: 6 } },
-      truth: { tempRise: 1.15, hr: 60, spo2: 97.9, sys: 101, dia: 60, glu: 85, rt: 262 },
+      pre: { temp: { mean: 36.6, n: 20 }, hr: { mean: 59, n: 20 }, spo2: { mean: 98.0, n: 20 }, sys: { mean: 108, n: 20 }, dia: { mean: 68, n: 20 }, glu: { mean: 84, n: 6 }, mass: { mean: 56.8, n: 8 } },
+      truth: { tempRise: 1.15, hr: 60, spo2: 97.9, sys: 101, dia: 60, glu: 85, massLoss: 0.8, water: 2.5, rt: 262 },
       wb: { mood: 4.0, stress: 2.6, sleep: 6.3, load: 3.4 },
       sleepDecline: { from: 46, to: 5.1 }
     },
     {
       id: 'a4', name: 'Rafael Ortiz', role: 'Spécialiste scientifique', fictif: true,
-      pre: { temp: { mean: 36.8, n: 20 }, hr: { mean: 51, n: 20 }, spo2: { mean: 97.8, n: 20 }, sys: { mean: 126, n: 20 }, dia: { mean: 80, n: 20 }, glu: { mean: 95, n: 6 } },
-      truth: { tempRise: 0.85, hr: 52, spo2: 97.7, sys: 117, dia: 71, glu: 99, rt: 284 },
+      pre: { temp: { mean: 36.8, n: 20 }, hr: { mean: 51, n: 20 }, spo2: { mean: 97.8, n: 20 }, sys: { mean: 126, n: 20 }, dia: { mean: 80, n: 20 }, glu: { mean: 95, n: 6 }, mass: { mean: 83.5, n: 8 } },
+      truth: { tempRise: 0.85, hr: 52, spo2: 97.7, sys: 117, dia: 71, glu: 99, massLoss: 4.6, water: 1.9, rt: 284 },
       wb: { mood: 3.9, stress: 2.5, sleep: 6.0, load: 3.3 }
     }
   ];

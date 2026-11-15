@@ -460,6 +460,7 @@
       case 'video': A.videos.play(a.which); break;
       case 'conference': A.go('conference', a.written ? { ecrit: 1 } : {}); break;
       case 'measure': A.go('sante', { mesure: a.metric }); break;
+      case 'water': { const ml = S.addWater(id, a.ml); A.toast(icon('cup') + 'Eau aujourd\'hui : ' + A.num(ml / 1000, 2) + ' L sur 2,5'); A.refresh(); break; }
       case 'sport': { const r = S.logExercise(id, a.sport, a.min); A.celebrate(r.res, 'séance enregistrée'); A.refresh(); break; }
       case 'journal': { S.addJournal(id, a.text, null); A.toast(icon('lock') + 'Ajouté à ton journal privé'); A.celebrate(A.gamify.award(id, 'journal'), 'page de journal'); A.refresh(); break; }
       case 'rename': S.setPref('sophieName', a.name); A.refresh(); break;
