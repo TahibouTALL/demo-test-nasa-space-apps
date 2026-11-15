@@ -38,8 +38,9 @@
       { key: 'yeux', name: 'Yeux',
         role: 'Ils voient de près et de loin, et s\'adaptent à la lumière.',
         space: 'Les liquides remontent vers la tête : sept astronautes sur dix, en mission longue, ont des changements au fond de l\'œil. Le signe à surveiller, c\'est la vision de près.', src: 'NASA, santé cardiovasculaire et vision',
-        st: 'na', you: 'Pas de mesure à bord. Dis-le tout de suite si ta vision de près devient floue.',
-        acts: [['La vidéo sur les yeux', 'play', () => A.go('videos/yeux')], ['Je vois moins bien', 'hand', () => A.go('triage', { t: 'je vois moins bien de près' })]] },
+        st: A.photo.waiting(id, 'oeil') ? 'warn' : 'na',
+        you: 'Pas de mesure à bord. Dis-le tout de suite si ta vision de près devient floue.' + (A.photo.status(id, 'oeil') ? ' ' + A.photo.status(id, 'oeil') : ''),
+        acts: [['La vidéo sur les yeux', 'play', () => A.go('videos/yeux')], ['Je vois moins bien', 'hand', () => A.go('triage', { t: 'je vois moins bien de près' })], [A.photo.label(id), 'camera', () => A.photoSheet('oeil')]] },
       { key: 'coeur', name: 'Cœur et vaisseaux',
         role: 'Le cœur pousse le sang, et avec lui l\'oxygène, dans tout le corps.',
         space: 'En apesanteur, le sang remonte vers le haut du corps et la tension baisse d\'environ 8 à 10 mmHg. Sans sport, le cœur se déconditionne.', src: 'Norsk, 2015',
@@ -85,8 +86,9 @@
       { key: 'peau', name: 'Peau',
         role: 'Elle protège de l\'extérieur et aide à garder la bonne température.',
         space: 'Les éruptions et irritations de la peau sont parmi les petits problèmes les plus fréquents en vol : elles touchent la grande majorité des astronautes en six mois.', src: 'Fiches AURA, modèle IMM de la NASA',
-        st: 'na', you: 'Pas de mesure de la peau à bord. Une rougeur, des démangeaisons ou une plaie qui ne guérit pas : dis-le à Sophie.',
-        acts: [['Un problème de peau', 'hand', () => A.go('triage', { t: 'j\'ai un problème de peau' })]] }
+        st: A.photo.waiting(id, 'peau') ? 'warn' : 'na',
+        you: A.photo.status(id, 'peau') || 'Pas de mesure de la peau à bord. Une rougeur, des démangeaisons ou une plaie qui ne guérit pas : dis-le à ' + S.sophieName(id) + ', ou envoie une photo ' + (S.isCmo(id) ? 'au médecin au sol.' : 'à ' + A.first(S.profile(S.cmoId()).name) + '.'),
+        acts: [[A.photo.label(id), 'camera', () => A.photoSheet('peau')], ['Un problème de peau', 'hand', () => A.go('triage', { t: 'j\'ai un problème de peau' })]] }
     ];
   }
 

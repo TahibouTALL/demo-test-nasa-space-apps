@@ -170,6 +170,8 @@
     if (eva) foot.push(icon('calendar') + '<span>' + esc(up1(eva.when) + ' : ' + low1(eva.label.replace(' : ', ', '))) + '</span>');
     const pend = m.triages.length ? m.triages[m.triages.length - 1] : null;
     if (pend && pend.d === S.day() && pend.ficheNom) foot.push(icon('stetho') + '<span>Orientation en cours : ' + esc(pend.ficheNom) + '</span>');
+    const rep = A.photo ? A.photo.reply(id) : null;
+    if (rep) foot.push(icon('camera') + '<span>' + esc(A.first(S.profile(S.cmoId()).name) + ' a répondu à ta photo : « ' + rep.reponse + ' »') + '</span>');
     return '<div class="day-head"><span>Aujourd\'hui</span>' + bell(id) + '</div>' +
       '<div class="day-card">' + hero + line + '</div>' +
       (foot.length ? '<div class="day-foot">' + foot.map(f => '<p>' + f + '</p>').join('') + '</div>' : '');

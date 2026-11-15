@@ -12,7 +12,7 @@ OUT = os.path.join(REPO, 'docs')
 VR = os.path.join(REPO, 'immersion', 'dist')
 ORDER = ['core/util.js', 'core/data.js', 'core/engine.js', 'core/pharma.js', 'kb/vocab.js', 'kb/fiches.js', 'kb/fiches-data.js', 'kb/triage.js',
          'core/gamify.js', 'core/store.js', 'core/kb.js', 'sophie/character.js', 'sophie/voice.js', 'sophie/llm.js', 'sophie/brain.js', 'lib/qrcode.js',
-         'ui/shell.js', 'ui/crew.js', 'ui/conference.js', 'ui/rig.js', 'ui/videos.js', 'ui/immersive.js', 'ui/defis.js', 'ui/rappels.js', 'ui/corps.js', 'ui/cmo.js', 'main.js']
+         'ui/shell.js', 'ui/crew.js', 'ui/conference.js', 'ui/rig.js', 'ui/videos.js', 'ui/immersive.js', 'ui/defis.js', 'ui/rappels.js', 'ui/photo.js', 'ui/corps.js', 'ui/cmo.js', 'main.js']
 
 # 1) contrôles : pas de tiret long ni moyen dans notre code et nos textes
 bad = []

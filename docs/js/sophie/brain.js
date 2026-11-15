@@ -205,6 +205,13 @@
       if (min && min > 0 && min <= 240) return { say: 'Bravo ! ' + A.dur(min) + ' de ' + (sportType === 'velo' ? 'vélo' : sportType === 'tapis' ? 'tapis' : 'musculation') + ', c\'est noté.', emotion: 'happy', action: { type: 'sport', sport: sportType, min } };
       return { say: 'Combien de minutes as-tu fait ?', action: { type: 'go', route: 'defis', params: { log: sportType } } };
     }
+    // une photo de la peau ou de l'œil, pour la médecin de bord (AURA ne l'analyse pas)
+    if (/\b(photos?|photographier|prendre en photo)\b/.test(t) && !sceneIn(t) &&
+      (/\b(peau|oeil|yeux|paupieres?|boutons?|plaie|eruption|rougeur|tache|grain de beaute|brulure|keiko|medecin|docteur)\b/.test(t) || /\b(envoie|envoyer|prendre|prends|faire|fais)\b/.test(t))) {
+      const zone = /\b(oeil|yeux|paupieres?)\b/.test(t) ? 'oeil' : 'peau';
+      const light = zone === 'oeil' ? 'Face à une lumière douce, sans flash' : 'En pleine lumière, sans flash';
+      return { say: 'D\'accord. ' + light + (A.store.isCmo(A.store.state.who) ? ' : je la garde dans ton dossier et je demande l\'avis du sol.' : ' : je l\'envoie à Keiko, qui la regardera.'), action: { type: 'photo', zone } };
+    }
     // l'eau bue, la masse
     if (/\b(j ai bu|bu un verre|bu une gourde|bu de l eau|un verre d eau)\b/.test(t)) {
       const ml = /\b(gourde|50 cl|demi litre)\b/.test(t) ? 500 : 250;
