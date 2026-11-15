@@ -31,8 +31,19 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
   probable, les gestes à faire et une proposition de traitement vérifiée, envoyée à la médecin de bord.
 - **Urgences** : écran d'urgence avec les premiers gestes, médecin de bord prévenue, message prioritaire
   vers la Terre, et une suppléante quand la médecin de bord est elle-même la patiente.
-- **Mesures** : température, pouls au repos, saturation et sommeil, lus avec la référence personnelle
-  de chacun (filtre de Kalman) et l'effet connu du vol.
+- **Mesures** : température, pouls au repos, saturation, tension artérielle, glycémie à jeun et masse
+  (une fois par semaine), eau bue dans la journée et sommeil, lus avec la référence personnelle de chacun (filtre de Kalman) et l'effet
+  connu du vol (par exemple, la tension baisse de 8 à 10 mmHg en apesanteur). Pour chaque mesure, un
+  conseil pour bien la prendre.
+- **Mon corps** : une silhouette dont chaque partie se touche (cerveau, yeux, cœur, poumons,
+  digestion et nutrition, reins, os, muscles, défenses du corps, peau) : à quoi elle sert, ce que le vol lui fait, comment elle va
+  chez l'astronaute, et quoi faire. La couleur dit l'état d'un coup d'œil. En dessous, les cinq dangers du vol
+  habité de la NASA (radiations, isolement, distance, gravité, environnement), ce que chacun fait et
+  ce qu'AURA fait pour l'astronaute, avec la dose de radiations reçue depuis le départ.
+- **Une photo pour Keiko** : depuis Mon corps (peau, yeux), ou en le demandant à Sophie, l'astronaute
+  prend une photo, dit où et depuis quand, et l'envoie. AURA ne l'analyse pas : la médecin de bord la
+  voit à côté de la précédente, répond, et peut demander l'avis du médecin au sol. Les signes d'alarme
+  passent avant : un bouton ouvre tout de suite l'écran d'urgence.
 - **Conférence de la semaine** : quinze minutes avec Sophie, à la voix ou par écrit, sur six sujets
   (alimentation, sommeil, exercice, élimination, charge de travail, moral). Le résumé est relu avant
   l'envoi, et la partie moral reste privée sans accord.
@@ -43,21 +54,27 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
   équipage en 3D : arrêt cardiaque, allergie grave, étouffement, feu à bord, dépressurisation, fuite
   d'ammoniac, décompression après une sortie, calcul rénal avec échographie, coupure, brûlure, œil,
   saignement de nez. Une consigne courte par étape, le geste montré en animation.
-- **Vidéos** : quatorze films de trois à quatre minutes, sous-titrés et sourcés (prévention et
-  sécurité), et chaque jour le film le plus utile pour chacun (sortie prévue, sommeil en baisse,
-  premiers jours, rappel de sécurité).
-- **Défis** : points, niveaux, badges et un objectif commun à l'équipage, pour le sport, les
-  entraînements, l'évasion, les vidéos, le journal et les conférences.
-- **Espace de la médecin de bord** : équipage, propositions à valider, pharmacie et simulation Monte
-  Carlo des stocks, fiches (cycle de vie et test), vidéos, liaison avec la Terre, réglages de la mission.
+- **Ta journée** : sur l'accueil, les rendez-vous du jour à leur heure (mesures, cardio, vidéo, force,
+  conférence), le prochain mis en avant avec le temps qui reste. À l'heure, un bandeau s'affiche, et
+  une notification si l'astronaute l'a permise. Un rendez-vous manqué est simplement reproposé plus
+  tard, sans reproche.
+- **Vidéos** : quatorze films d'animation d'environ une minute, voix anglaise, sous-titres français et
+  anglais, chapitres et sources (prévention et sécurité). Chaque jour, le film le plus utile pour
+  chacun (sortie prévue, sommeil en baisse, premiers jours, rappel de sécurité).
+- **Sport et défis** : la séance du jour guidée en plein écran, des exercices animés avec les muscles
+  qui travaillent, la semaine de chaque muscle ; points, niveaux, badges et un objectif commun à
+  l'équipage, pour le sport, les entraînements, l'évasion, les vidéos, le journal et les conférences.
+- **Espace de la médecin de bord** : équipage, alertes, photos reçues, propositions à valider,
+  pharmacie et simulation Monte Carlo des stocks, fiches (cycle de vie et test), vidéos, liaison avec
+  la Terre, réglages de la mission.
 
 ## L'essayer
 
 1. Ouvrir le lien ci-dessus, de préférence dans Chrome ou Edge (la dictée vocale en dépend).
 2. Choisir un astronaute, par exemple Lucas, ou la médecin de bord, Keiko.
 3. Parler ou écrire à Sophie : « j'ai mal à la tête », « je me suis cogné la tête », « emmène-moi au
-   lac », « lance la simulation d'arrêt cardiaque », « appelle-toi Nova », « parle avec une voix
-   d'homme ».
+   lac », « lance la simulation d'arrêt cardiaque », « envoie une photo de ma peau à Keiko »,
+   « appelle-toi Nova », « parle avec une voix d'homme ».
 
 Pour le casque : dans Évasion, « Ouvrir dans le casque » affiche un code QR à viser avec le navigateur
 du casque ; dans la scène, le bouton Casque fait entrer dedans. Les données sont des données de
@@ -108,7 +125,7 @@ redirige vers `docs/`.
 
 ```
 docs/                    site publié (généré par npm run build)
-docs/videos/             films publiés (faits par plateforme/tools/videos, gardés à la construction)
+docs/videos/             films publiés (faits par plateforme/tools/films, gardés à la construction)
 plateforme/
   src/index.html         page, avec la liste des scripts insérée à la construction
   src/css/aura.css       système visuel
@@ -116,11 +133,15 @@ plateforme/
   src/js/core/           données de référence, moteur de calcul, pharmacie, défis, état
   src/js/kb/             vocabulaire, lecture des fiches, données des fiches, moteur d'orientation
   src/js/sophie/         personnage, voix, compréhension des demandes, IA facultative
-  src/js/ui/             écrans : accueil, santé, orientation, conférence, journal, vidéos,
-                         évasion et simulations, défis, espace de la médecin de bord
+  src/js/ui/             écrans : accueil et journée (rappels), santé, Mon corps, photos pour la
+                         médecin de bord, orientation, conférence, journal, vidéos, évasion et
+                         simulations, sport et défis, espace de la médecin de bord ; rig.js anime
+                         les personnages du sport et des films
   kb/fiches.md           base de connaissances (export du document)
   tools/                 construction du site et des données des fiches
-  tools/videos/          fabrication des films (images 3D, schémas, voix, sous-titres)
+  tools/films/           films d'animation 2D d'une minute : textes, voix anglaise, animation,
+                         son, sous-titres français et anglais, vignettes (node publish.mjs)
+  tools/videos/          ancienne fabrication des films (images 3D, schémas, voix, sous-titres)
   tests/                 scénarios du moteur et parcours dans le navigateur
 immersion/
   src/                   scènes 3D, simulations, réalité virtuelle
@@ -142,9 +163,13 @@ température en apesanteur.
 Code sous licence MIT. three.js : licence MIT (`immersion/lib/three/LICENSE`). Intérieur de l'ISS et
 scaphandre : NASA 3D Resources (domaine public). Équipage : MakeHuman (licence CC0). Police Atkinson
 Hyperlegible Next : licence SIL Open Font (`plateforme/src/fonts/OFL.txt`). qrcode-generator : licence
-MIT (en tête de `plateforme/src/js/lib/qrcode.js`).
+MIT (en tête de `plateforme/src/js/lib/qrcode.js`). Voix des films : Kokoro (licence Apache 2.0).
 
 ## Utilisation de l'IA
 
-Le code et les textes de cette plateforme ont été produits avec l'aide d'un assistant d'intelligence
-artificielle. C'est à déclarer dans la soumission, conformément aux règles du concours.
+Le code et les textes de cette plateforme ont été écrits avec l'aide de Claude (Anthropic), un
+assistant d'intelligence artificielle, puis relus et testés par l'équipe. Les voix des films sont
+synthétisées avec Kokoro, un modèle de synthèse vocale aux poids ouverts ; les animations sont
+dessinées par le code du projet. Aucune décision médicale ne vient d'une IA : les orientations
+viennent des fiches et des règles de la base de connaissances. C'est déclaré dans la soumission,
+conformément aux règles du concours.

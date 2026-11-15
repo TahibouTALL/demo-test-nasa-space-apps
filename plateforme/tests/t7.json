@@ -1,0 +1,18 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a2']", "wait": 2000},
+{"js": "__aura.store.state.settings.timeOverride = 580; __aura.store.save(); __aura.go('defis'); __aura.go('accueil'); 1", "wait": 1200},
+{"js": "JSON.stringify(__aura.rappels.today('a2').map(x => [x.key, x.t, x.status]))"},
+{"js": "window.scrollTo(0, 380); 1", "shot": "70_journee_0940", "wait": 900},
+{"js": "__aura.store.state.settings.timeOverride = 605; __aura.store.save(); __aura.go('defis'); __aura.go('accueil'); window.scrollTo(0, 380); 1", "shot": "71_journee_1005", "wait": 1200},
+{"js": "document.querySelector('#hSay').textContent"},
+{"js": "__aura.store.member('a2').plan.told = {}; __aura.go('videos'); __aura.rappels.tick(); 1", "shot": "72_bandeau", "wait": 1200},
+{"click": ".rbanner [data-later]", "shot": "73_plus_tard", "wait": 700},
+{"js": "JSON.stringify(__aura.store.member('a2').plan.moved)"},
+{"js": "__aura.store.state.settings.timeOverride = 1300; __aura.store.save(); __aura.go('defis'); __aura.go('accueil'); window.scrollTo(0, 380); 1", "shot": "74_journee_soir", "wait": 1200},
+{"js": "document.querySelector('#hSay').textContent"},
+{"size": [390, 844]},
+{"js": "__aura.store.state.settings.timeOverride = 605; __aura.store.member('a2').plan = null; __aura.store.save(); __aura.go('defis'); __aura.go('accueil'); 1", "wait": 1200},
+{"js": "window.scrollTo(0, 520); 1", "shot": "75_journee_mobile", "wait": 900},
+{"js": "__aura.store.member('a2').plan.told = {}; __aura.go('sante'); __aura.rappels.tick(); 1", "shot": "76_bandeau_mobile", "wait": 1200}
+]

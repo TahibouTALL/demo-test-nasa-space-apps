@@ -1,0 +1,9 @@
+node_modules
+audio
+out
+preview
+dev
+text.json
+tts.log
+sheet.png
+render.log

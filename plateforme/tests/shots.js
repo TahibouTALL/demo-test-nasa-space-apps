@@ -31,6 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (s.hash !== undefined) { await page.evaluate(h => { location.hash = h; }, s.hash); }
       if (s.click) await page.click(s.click, { timeout: 4000 });
       if (s.fill) await page.fill(s.fill[0], s.fill[1]);
+      if (s.files) await page.setInputFiles(s.files[0], path.resolve(path.dirname(which), s.files[1]));
       if (s.press) await page.press(s.press[0], s.press[1]);
       if (s.js) { const r = await page.evaluate(s.js); if (r !== undefined && r !== null) console.log('js:', typeof r === 'string' ? r : JSON.stringify(r)); }
       if (s.shot) await shot(s.shot, s.wait);

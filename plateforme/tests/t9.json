@@ -1,0 +1,18 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a2']", "wait": 2500},
+{"js": "window.scrollTo(0, 600); 1", "shot": "90_accueil_portes", "wait": 1200},
+{"click": ".door[data-go='corps']", "wait": 4500},
+{"shot": "91_corps", "wait": 500},
+{"click": ".corps-fig [data-o='coeur']", "shot": "92_corps_coeur", "wait": 900},
+{"click": ".corps-list [data-o='yeux']", "shot": "93_corps_yeux", "wait": 900},
+{"click": ".corps-list [data-o='os']", "shot": "94_corps_os", "wait": 900},
+{"click": "#cDetail [data-a='0']", "wait": 1500},
+{"js": "location.hash"},
+{"js": "(async () => { const r = await __aura.brain.handle('montre-moi mon corps'); return JSON.stringify(r.action); })()"},
+{"size": [390, 844]},
+{"hash": "#/corps", "wait": 4500},
+{"shot": "95_corps_mobile", "wait": 500},
+{"click": ".corps-list [data-o='poumons']", "wait": 1200},
+{"shot": "96_corps_mobile_poumons", "wait": 400}
+]

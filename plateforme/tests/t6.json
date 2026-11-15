@@ -1,0 +1,15 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a2']", "wait": 2000},
+{"hash": "#/defis", "shot": "60_sport", "wait": 3000},
+{"js": "window.scrollTo(0, 900); 1", "shot": "61_sport_bas", "wait": 1500},
+{"click": ".sx-card[data-ex]", "shot": "62_exercice", "wait": 1800},
+{"press": ["body", "Escape"], "wait": 800},
+{"js": "window.scrollTo(0, 0); 1", "wait": 500},
+{"click": "[data-start]", "shot": "63_seance", "wait": 3000},
+{"shot": "64_seance_suite", "wait": 6000},
+{"press": ["body", "Escape"], "wait": 800},
+{"size": [390, 844]},
+{"hash": "#/accueil", "wait": 800},
+{"hash": "#/defis", "shot": "65_sport_mobile", "wait": 2500}
+]

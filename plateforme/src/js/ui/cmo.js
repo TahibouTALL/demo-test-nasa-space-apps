@@ -45,10 +45,10 @@
     const last = k => S.lastMeasure(id, k);
     const m = S.member(id);
     const shift = m.filters.temp.x - m.filters.temp.preMu;
-    const nw = TR.news2({ temp: last('temp') ? last('temp').v : null, hr: last('hr') ? last('hr').v : null, spo2: last('spo2') ? last('spo2').v : null }, { tempShift: shift });
+    const nw = TR.news2({ temp: last('temp') ? last('temp').v : null, hr: last('hr') ? last('hr').v : null, spo2: last('spo2') ? last('spo2').v : null, sys: last('sys') ? last('sys').v : null }, { tempShift: shift });
     const sl = m.measures.sleep.slice(-7);
     const ex = m.exercise.filter(x => x.d > S.day() - 7).reduce((a, x) => a + x.min, 0) / 7;
-    const bad = ['temp', 'hr', 'spo2'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
+    const bad = ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].some(k => last(k) && last(k).lvl !== 'normal' && last(k).d >= S.day() - 1);
     return { last, nw, sleep: sl.reduce((a, x) => a + x.v, 0) / Math.max(1, sl.length), ex, bad, shift };
   }
 
@@ -63,9 +63,9 @@
         const p = S.profile(id), m = S.member(id), v = vitalsOf(id);
         const conf = m.conferences[m.conferences.length - 1];
         const wins = Object.values(m.sims).reduce((a, s) => a + (s.wins || 0), 0);
-        const pend = S.pendingValidations().filter(x => x.who === id).length;
+        const pend = S.pendingValidations().filter(x => x.who === id).length, ph = A.photo.unseen(id);
         return '<button class="crew-tile" data-member="' + id + '"><div class="hd"><span class="avatar lg" style="--h:' + m.hue + '">' + A.initials(p.name) + '</span><div class="nm"><b>' + esc(p.name) + '</b><div class="muted small">' + esc(p.role) + '</div></div>' +
-          (pend ? '<span class="tag warn">' + pend + ' à valider</span>' : v.bad ? '<span class="tag warn">À regarder</span>' : '<span class="tag ok">Stable</span>') + '</div>' +
+          (pend ? '<span class="tag warn">' + pend + ' à valider</span>' : ph ? '<span class="tag sophie">' + A.plural(ph, 'photo à voir', 'photos à voir') + '</span>' : v.bad ? '<span class="tag warn">À regarder</span>' : '<span class="tag ok">Stable</span>') + '</div>' +
           '<div class="nums">' +
             '<div><small>Température</small><b>' + (v.last('temp') ? A.num(v.last('temp').v, 1) : '·') + '</b></div>' +
             '<div><small>Pouls</small><b>' + (v.last('hr') ? v.last('hr').v : '·') + '</b></div>' +
@@ -76,10 +76,12 @@
       return head('Équipage', 'Jour ' + S.day() + ' · CO₂ de la cabine ' + A.num(S.state.settings.pco2, 1) + ' mmHg' + (S.state.settings.pco2 > 3 ? ' <span class="tag warn">au-dessus de 3</span>' : '')) +
         '<div class="crew-grid">' + tiles + '</div>' +
         '<div class="panel" style="margin-top:22px"><div class="panel-title"><h2>' + icon('alert') + ' Dernières alertes</h2>' + (alerts.length ? '<button class="btn small ghost" data-readall>Tout marquer comme lu</button>' : '') + '</div>' +
-        (alerts.length ? '<div>' + alerts.map(a => '<div class="alert-row"><span class="tag ' + tagLevel(a.niveau) + '">' + esc(a.niveau) + '</span><span><b>' + esc(a.titre) + '</b> <span class="muted">' + esc(a.texte || '') + '</span></span><span class="faint small" style="white-space:nowrap">' + A.dayLabel(a.d, S.day()) + ' ' + A.hm(a.min || 0) + '</span></div>').join('') + '</div>' : '<p class="muted">Aucune alerte. Tout est calme.</p>') + '</div>';
+        (alerts.length ? '<div>' + alerts.map(a => '<div class="alert-row"><span class="tag ' + tagLevel(a.niveau) + '">' + esc(a.niveau) + '</span><span><b>' + esc(a.titre) + '</b> <span class="muted">' + esc(a.texte || '') + '</span></span><span class="ar-end"><span class="faint small" style="white-space:nowrap">' + A.dayLabel(a.d, S.day()) + ' ' + A.hm(a.min || 0) + '</span>' +
+          (a.photo ? '<button class="btn small ghost" data-photo="' + a.photo + '" data-who="' + a.who + '">' + icon('camera') + 'Voir la photo</button>' : a.who && S.profile(a.who) ? '<button class="btn small ghost" data-member="' + a.who + '">Voir</button>' : '') + '</span></div>').join('') + '</div>' : '<p class="muted">Aucune alerte. Tout est calme.</p>') + '</div>';
     },
     mount(node) {
       node.querySelectorAll('[data-member]').forEach(b => b.onclick = () => A.go('cmo/membre/' + b.dataset.member));
+      node.querySelectorAll('[data-photo]').forEach(b => b.onclick = () => A.photo.view(b.dataset.who, b.dataset.photo));
       const r = node.querySelector('[data-readall]');
       if (r) r.onclick = () => { S.state.alerts.forEach(a => { a.lu = true; }); S.save(); A.render(); };
     }
@@ -111,13 +113,18 @@
       const confs = m.conferences.slice().reverse().slice(0, 4);
       const meds = S.state.medLog.filter(x => x.who === id).slice(-6).reverse();
       const ex14 = Array.from({ length: 14 }, (_, i) => { const d = S.day() - 13 + i; return m.exercise.filter(x => x.d === d).reduce((a, x) => a + x.min, 0); });
+      // les photos envoyées par l'astronaute : en haut quand il y en a, la plus récente d'abord
+      const phs = A.photo.list(id).slice().reverse(), phNew = A.photo.unseen(id);
+      const photos = '<div class="panel" style="margin-top:20px"><div class="panel-title"><h3>' + icon('camera') + ' Photos envoyées</h3>' + (phNew ? '<span class="tag sophie">' + A.plural(phNew, 'nouvelle', 'nouvelles') + '</span>' : '') + '</div>' +
+        (phs.length ? '<div class="ph-grid">' + phs.map(x => '<button class="ph-th" data-ph-open="' + x.id + '"><span class="im"><img data-ph="' + x.id + '" alt=""></span><span class="lb"><b>' + esc(A.photo.Z[x.zone] ? A.photo.Z[x.zone].label : 'Photo') + '</b>' + esc(A.dayLabel(x.d, S.day()) + ' à ' + A.hm(x.min)) + (x.vue ? '' : ' <span class="tag sophie">nouvelle</span>') + (x.worse ? ' <span class="tag warn">ça empire</span>' : '') + (x.reponse ? ' <span class="tag ok">répondu</span>' : '') + '</span></button>').join('') + '</div>'
+          : '<p class="muted">Aucune photo pour l\'instant. Depuis Mon corps, Peau ou Yeux, l\'astronaute peut en envoyer une.</p>') + '</div>';
       const bars = '<svg viewBox="0 0 420 110" style="width:100%;height:auto">' + ex14.map((mm, i) => '<rect x="' + (i * 30 + 4) + '" y="' + (96 - Math.min(90, mm) ) + '" width="22" height="' + Math.min(90, mm) + '" rx="5" fill="' + (mm >= 72 ? '#FFC870' : '#4A5BA8') + '"/>').join('') + '<line x1="0" x2="420" y1="' + (96 - 90 * 0.8) + '" y2="' + (96 - 90 * 0.8) + '" stroke="#FFC870" stroke-dasharray="4 4" opacity=".5"/></svg>';
       return head(p.name, esc(p.role) + ' · ' + (m.sexe === 'F' ? 'femme' : 'homme') + ' · niveau ' + A.gamify.level(m.xp).n, '<button class="btn" data-back>' + icon('back') + 'Équipage</button>') +
         '<div class="grid3">' +
           '<div class="panel tight"><span class="muted small">Score d\'alerte (NEWS2 adapté)</span><h2 style="margin-top:6px">' + v.nw.total + ' <span class="tag ' + (v.nw.niveau === 'bas' ? 'ok' : v.nw.niveau === 'surveillance' ? 'sophie' : 'bad') + '">' + esc(v.nw.niveau) + '</span></h2><p class="faint small">' + (v.nw.partial ? 'Partiel : température, pouls et saturation seulement. Il peut faire monter l\'alerte, jamais rassurer.' : 'Complet.') + ' Température corrigée de ' + A.num(v.shift, 1) + ' °C.</p></div>' +
           '<div class="panel tight"><span class="muted small">Dose de radiations cumulée</span><h2 style="margin-top:6px">' + A.num(dose, 0) + ' mSv</h2><p class="faint small">Environ 1,8 mSv par jour en trajet (Zeitlin, 2013). Limite de carrière : 600 mSv.</p></div>' +
           '<div class="panel tight"><span class="muted small">Sommeil moyen sur 7 jours</span><h2 style="margin-top:6px">' + A.num(v.sleep, 1) + ' h</h2><p class="faint small">' + (v.sleep < 5.8 ? 'En baisse : à aborder en conférence.' : 'Dans les habitudes de la mission.') + '</p></div>' +
-        '</div>' +
+        '</div>' + (phs.length ? photos : '') +
         '<div class="grid2" style="margin-top:20px">' +
           '<div class="panel"><h3>Température et plage personnelle</h3>' + lineChart(m.measures.temp.slice(-30), '#FFB38A', S.reference(id, 'temp'), '°C', 1) + '</div>' +
           '<div class="panel"><h3>Pouls au repos</h3>' + lineChart(m.measures.hr.slice(-30), '#FF8FA3', S.reference(id, 'hr'), '/min', 0) + '</div>' +
@@ -127,9 +134,14 @@
           '<div class="panel"><h3>Conférences</h3>' + (confs.length ? '<div class="stack" style="margin-top:12px">' + confs.map(c => '<div><div class="spread"><b>' + A.dayLabel(c.d, S.day()) + '</b><span class="tag ' + (c.partage ? 'sophie' : '') + '">' + (c.partage ? 'moral partagé' : 'moral privé') + '</span></div><p class="muted small">' + esc(c.resume || '') + '</p></div>').join('') + '</div>' : '<p class="muted">Pas encore de conférence.</p>') +
           '<h3 style="margin-top:20px">Sport sur 14 jours</h3>' + bars +
           (meds.length ? '<h3 style="margin-top:20px">Prises récentes</h3><div class="stack">' + meds.map(x => '<div class="spread small"><span>' + esc((PH.meds.find(mm => mm.id === x.med) || {}).name || x.med) + '</span><span class="faint">' + A.dayLabel(x.d, S.day()) + '</span></div>').join('') + '</div>' : '') + '</div>' +
-        '</div>';
+        '</div>' + (phs.length ? '' : photos);
     },
-    mount(node) { const b = node.querySelector('[data-back]'); if (b) b.onclick = () => A.go('cmo'); }
+    mount(node, params) {
+      const id = (params.arg || [])[1];
+      const b = node.querySelector('[data-back]'); if (b) b.onclick = () => A.go('cmo');
+      node.querySelectorAll('.ph-th img[data-ph]').forEach(A.photo.fill);
+      node.querySelectorAll('[data-ph-open]').forEach(t => t.onclick = () => A.photo.view(id, t.dataset.phOpen));
+    }
   };
 
   /* ---------------- À valider ---------------- */
@@ -171,7 +183,7 @@
   function solSheet(v) {
     const p = S.profile(v.who);
     const L = S.light();
-    const msg = 'Qui : ' + p.name + ' (' + p.role + '). Depuis : jour ' + v.d + ' à ' + A.hm(v.min) + '. Signes : ' + ((v.pour || []).map(c => (VOCAB.FACTS[c] || {}).label || c).join(', ') || v.texte) + '. Mesures : ' + ['temp', 'hr', 'spo2'].map(k => { const l = S.lastMeasure(v.who, k); return l ? DATA.metrics[k].short + ' ' + A.num(l.v, DATA.metrics[k].decimals) : ''; }).filter(Boolean).join(', ') + '. Orientations : ' + [{ nom: v.ficheNom, p: v.p }].concat(v.autres || []).map(o => o.nom + ' ' + pct(o.p)).join(' ; ') + '. Traitement envisagé : ' + (v.medNom || 'gestes de la fiche') + '. Question : confirmez-vous ce traitement ? Réponse souhaitée avant : jour ' + (S.day() + (L > 10 ? 1 : 0)) + '.';
+    const msg = 'Qui : ' + p.name + ' (' + p.role + '). Depuis : jour ' + v.d + ' à ' + A.hm(v.min) + '. Signes : ' + ((v.pour || []).map(c => (VOCAB.FACTS[c] || {}).label || c).join(', ') || v.texte) + '. Mesures : ' + ['temp', 'hr', 'spo2', 'sys', 'dia', 'glu'].map(k => { const l = S.lastMeasure(v.who, k); return l ? DATA.metrics[k].short + ' ' + A.num(l.v, DATA.metrics[k].decimals) : ''; }).filter(Boolean).join(', ') + '. Orientations : ' + [{ nom: v.ficheNom, p: v.p }].concat(v.autres || []).map(o => o.nom + ' ' + pct(o.p)).join(' ; ') + '. Traitement envisagé : ' + (v.medNom || 'gestes de la fiche') + '. Question : confirmez-vous ce traitement ? Réponse souhaitée avant : jour ' + (S.day() + (L > 10 ? 1 : 0)) + '.';
     const sh = A.sheet('Demander l\'avis du sol', '<p class="muted">Un seul message clair, comme le demande la règle R-COM-05. Réponse au plus tôt dans ' + A.dur(2 * L + 45) + '.</p><label class="field" style="margin-top:14px"><span>Message</span><textarea id="solMsg">' + esc(msg) + '</textarea></label><button class="btn primary block" id="solGo" style="margin-top:16px">' + icon('send') + 'Mettre en tête de la file</button>', { wide: true });
     sh.querySelector('#solGo').onclick = () => { S.queue({ prio: v.urgent ? 0 : 1, kind: 'avis', who: v.who, titre: 'Avis demandé : ' + v.ficheNom + ' (' + p.name + ')', texte: sh.querySelector('#solMsg').value }); S.decide(v.id, 'avis du sol'); A.closeSheet(); A.toast(icon('satellite') + 'Message placé dans la file vers la Terre'); A.render(); };
   }

@@ -1,0 +1,12 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a2']", "wait": 2500},
+{"hash": "#/corps", "wait": 4500},
+{"js": "document.querySelector('.hz').scrollIntoView(); 1", "shot": "100_dangers", "wait": 1200},
+{"js": "document.querySelector('.hz-list li p.you').textContent"},
+{"click": "[data-hz='0']", "wait": 1500},
+{"js": "location.hash"},
+{"size": [390, 844]},
+{"hash": "#/corps", "wait": 4000},
+{"js": "document.querySelector('.hz').scrollIntoView(); 1", "shot": "101_dangers_mobile", "wait": 1200}
+]

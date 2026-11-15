@@ -1,0 +1,22 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a4']", "wait": 2500},
+{"hash": "#/sante", "wait": 4500},
+{"shot": "110_sante_8", "wait": 300},
+{"js": "JSON.stringify({masse: __aura.store.lastMeasure('a4','mass'), eau: __aura.store.waterToday('a4'), tuiles: document.querySelectorAll('.vitals > button').length})"},
+{"click": "[data-water]", "wait": 1000},
+{"click": "#wAdd [data-ml='500']", "wait": 800},
+{"shot": "111_eau", "wait": 400},
+{"press": ["body", "Escape"], "wait": 600},
+{"click": "[data-detail='mass']", "shot": "112_masse", "wait": 1200},
+{"click": "#dMeasure", "wait": 900},
+{"click": "#mSave", "shot": "113_masse_resultat", "wait": 1000},
+{"press": ["body", "Escape"], "wait": 600},
+{"js": "(async () => { const a = await __aura.brain.handle('j ai bu une gourde'); const b = await __aura.brain.handle('je veux me peser'); return JSON.stringify([a.action, b.action]); })()"},
+{"hash": "#/corps?o=ventre", "wait": 4000},
+{"shot": "114_corps_nutrition", "wait": 300},
+{"click": ".corps-list [data-o='defenses']", "shot": "115_corps_defenses", "wait": 900},
+{"size": [390, 844]},
+{"hash": "#/sante", "wait": 4000},
+{"js": "window.scrollTo(0, 420); 1", "shot": "116_sante_mobile", "wait": 900}
+]

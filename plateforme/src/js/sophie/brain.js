@@ -78,6 +78,10 @@
     if (has(t, /\b(bonne nuit|je vais dormir|je vais me coucher)\b/)) return { say: 'Bonne nuit ' + me + '. Je baisse les lumières de l\'écran. Si tu veux, je te guide pour une respiration lente avant de dormir.', emotion: 'happy', chips: ['Respiration guidée'] };
     if (has(t, /\b(je t aime|tu es gentille|tu es genial|je t adore)\b/)) return { say: 'Ça me touche. Je suis là pour toi, tous les jours de la mission.', emotion: 'happy' };
     if (has(t, /\b(deuil|deces|decede|decedee|est mort|est morte)\b/)) return { say: 'Je suis vraiment désolée, ' + me + '. Prends le temps qu\'il faut. Tu veux en parler avec moi, ou que je prévienne Keiko ? Le psychologue au sol peut aussi t\'appeler.', emotion: 'concerned', chips: ['En parler', 'Appeler Keiko'] };
+    if (/\b(tension arterielle|pression arterielle|tensiometre|ma tension|(prendre|mesurer|verifier) (ma |la )?tension|glycemie|taux de sucre|sucre dans le sang)\b/.test(t) && !/\b(dispute|conflit|avec|entre nous|a bord|equipe)\b/.test(t)) {
+      const metric = /glycemie|sucre/.test(t) ? 'glu' : 'bp';
+      return { say: metric === 'glu' ? 'D\'accord. La glycémie se prend à jeun, une goutte au bout du doigt. Je t\'ouvre la mesure.' : 'D\'accord. Assieds-toi cinq minutes, le bras à hauteur du cœur. Je t\'ouvre la mesure.', action: { type: 'measure', metric } };
+    }
     if (has(t, /\b(dispute|disputes|conflit|tension|tensions|supporte plus|enerve|agace)\b/)) return { say: 'Une tension à bord, c\'est fréquent dans un espace aussi petit. Tu veux en parler, ou l\'écrire dans ton journal pour y voir plus clair ?', emotion: 'concerned', chips: ['En parler', 'Mon journal'] };
     if (has(t, /\b(stress|stresse|stressee|angoisse|angoissee|peur|inquiet|inquiete|triste|cafard|seul|seule|solitude|manque|manquent|deprime|deprimee|mal du pays)\b/)) return { say: 'Merci de me le dire. C\'est normal de ressentir ça, si loin de chez soi. Tu veux en parler un peu, l\'écrire dans ton journal, ou faire une pause au bord du lac ?', emotion: 'concerned', chips: ['En parler', 'Mon journal', 'Le lac'] };
     if (has(t, /\b(dormir|dors|dormi|sommeil|insomnie|reveille|nuit|nuits)\b/)) return { say: 'Les nuits difficiles, ça use. Tu as dormi ' + A.num(ctx.sleep, 1) + ' heures en moyenne cette semaine. Ce soir, une respiration lente avant de dormir peut aider. Tu veux qu\'on regarde ça ensemble ?', emotion: 'concerned', chips: ['Regarder ça ensemble', 'Respiration guidée'] };
@@ -201,9 +205,23 @@
       if (min && min > 0 && min <= 240) return { say: 'Bravo ! ' + A.dur(min) + ' de ' + (sportType === 'velo' ? 'vélo' : sportType === 'tapis' ? 'tapis' : 'musculation') + ', c\'est noté.', emotion: 'happy', action: { type: 'sport', sport: sportType, min } };
       return { say: 'Combien de minutes as-tu fait ?', action: { type: 'go', route: 'defis', params: { log: sportType } } };
     }
+    // une photo de la peau ou de l'œil, pour la médecin de bord (AURA ne l'analyse pas)
+    if (/\b(photos?|photographier|prendre en photo)\b/.test(t) && !sceneIn(t) &&
+      (/\b(peau|oeil|yeux|paupieres?|boutons?|plaie|eruption|rougeur|tache|grain de beaute|brulure|keiko|medecin|docteur)\b/.test(t) || /\b(envoie|envoyer|prendre|prends|faire|fais)\b/.test(t))) {
+      const zone = /\b(oeil|yeux|paupieres?)\b/.test(t) ? 'oeil' : 'peau';
+      const light = zone === 'oeil' ? 'Face à une lumière douce, sans flash' : 'En pleine lumière, sans flash';
+      return { say: 'D\'accord. ' + light + (A.store.isCmo(A.store.state.who) ? ' : je la garde dans ton dossier et je demande l\'avis du sol.' : ' : je l\'envoie à Keiko, qui la regardera.'), action: { type: 'photo', zone } };
+    }
+    // l'eau bue, la masse
+    if (/\b(j ai bu|bu un verre|bu une gourde|bu de l eau|un verre d eau)\b/.test(t)) {
+      const ml = /\b(gourde|50 cl|demi litre)\b/.test(t) ? 500 : 250;
+      return { say: 'C\'est noté, ' + (ml === 500 ? 'une gourde' : 'un verre') + ' de plus.', emotion: 'happy', action: { type: 'water', ml } };
+    }
+    if (/\b(combien (j ai|ai je) bu|mon eau)\b/.test(t)) { const ml = A.store.waterToday(A.store.state.who); return { say: 'Aujourd\'hui, tu as bu ' + A.num(ml / 1000, 2).replace('.', ',') + ' litre' + (ml >= 2000 ? 's' : '') + ' sur deux et demi.', action: { type: 'go', route: 'sante' } }; }
+    if (/\b(mon poids|ma masse|me peser|peser)\b/.test(t)) return { say: 'D\'accord, on prend ta masse : le matin, à jeun, une fois par semaine.', action: { type: 'measure', metric: 'mass' } };
     // mesures
     if (/\b(prendre|mesurer|noter|enregistrer|ajouter)\b.*\b(temperature|pouls|saturation|mesure|tension)\b/.test(t)) {
-      const metric = /pouls/.test(t) ? 'hr' : /saturation/.test(t) ? 'spo2' : 'temp';
+      const metric = /pouls/.test(t) ? 'hr' : /saturation/.test(t) ? 'spo2' : /tension/.test(t) ? 'bp' : /glycemie|sucre/.test(t) ? 'glu' : 'temp';
       return { say: 'D\'accord, on prend ta mesure.', action: { type: 'measure', metric } };
     }
     // simulations
@@ -234,6 +252,7 @@
     if (/\b(defis?|gamification|recompenses?|tour de la terre|objectif d equipage|ma serie)\b/.test(t)) return { say: 'Voici tes défis.', action: { type: 'go', route: 'defis' } };
     if (/\b(sport|seance|exercice physique)\b/.test(t)) return { say: 'Voici ton activité du jour.', action: { type: 'go', route: 'defis' } };
     // santé
+    if (/\b(mon corps|mes organes|le corps humain|silhouette)\b/.test(t)) return { say: 'Voici ton corps. Touche une partie pour voir à quoi elle sert et comment elle va.', action: { type: 'go', route: 'corps' } };
     if (/\b(sante|mesures?|constantes|signes vitaux)\b/.test(t)) return { say: 'Voici ta santé.', action: { type: 'go', route: 'sante' } };
     if (/\b(je ne me sens pas bien|je me sens mal|je suis malade|pas en forme|j ai un probleme|bobo)\b/.test(t)) return { say: 'Je suis là. Dis-moi ce qui ne va pas.', action: { type: 'triage', text: '' }, emotion: 'concerned' };
     // médecin de bord
