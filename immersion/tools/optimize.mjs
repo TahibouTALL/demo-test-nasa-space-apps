@@ -1,0 +1,12 @@
+import { NodeIO } from '@gltf-transform/core';
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+import { prune, dedup, weld, meshopt, quantize } from '@gltf-transform/functions';
+import { MeshoptEncoder } from 'meshoptimizer';
+await MeshoptEncoder.ready;
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
+const [i, o] = process.argv.slice(2);
+const doc = await io.read(i);
+const noQ = process.argv.includes('--no-quantize');
+await doc.transform(...[prune({ keepAttributes: true }), dedup(), weld(), ...(noQ ? [] : [quantize()]), meshopt({ encoder: MeshoptEncoder, level: 'medium' })]);
+await io.write(o, doc);
+const fs = await import('fs'); console.log('écrit', o, (fs.statSync(o).size / 1e6).toFixed(2), 'Mo');

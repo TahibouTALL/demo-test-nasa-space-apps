@@ -356,6 +356,32 @@ function buildCupola() {
   return g;
 }
 
+// coupole réelle : modèle intérieur de l'ISS publié par la NASA (domaine public)
+async function buildNasaCupola() {
+  const g = await Models.load('iss-cupola');
+  const src = g.scene.clone(true);
+  src.scale.setScalar(0.1);
+  const keep = [];
+  src.traverse(o => {
+    if (!o.isMesh) return;
+    // vitres et volets de protection extérieurs (fermés dans le modèle) : on les retire pour voir la Terre
+    if (/Glass|_WC_/i.test(o.name)) { o.visible = false; return; }
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach(tuneStationMaterial);
+    keep.push(o);
+  });
+  const wrap = new THREE.Group();
+  wrap.add(src);
+  wrap.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  keep.forEach(o => box.expandByObject(o));
+  const c = box.getCenter(new THREE.Vector3());
+  // la fenêtre centrale (nadir) est en bas ; le regard se place 55 cm au-dessus d'elle
+  src.position.set(-c.x * 1, -(box.min.y + 0.55), -c.z);
+  wrap.userData = { box, height: box.max.y - box.min.y };
+  return wrap;
+}
+
 // position de l'ISS (vecteur unitaire, repère terrestre de three.js : y vers le pôle Nord)
 function issOrbit(state, t) {
   const r = EARTH_R + ISS_ALT;
@@ -417,6 +443,8 @@ EXPERIENCES.earth = {
     const cat = makeStarCatalog(11, 5200);
     const stars = makeStarPoints(cat, { depthTest: false, magLimit: 6.2 });
     stars.renderOrder = 0;
+    // dessinées avant la Terre et la coupole (passe opaque), pour ne jamais passer devant elles
+    stars.material.transparent = false;
     stars.scale.setScalar(5e8);
     const starHolder = new THREE.Group();
     starHolder.add(stars);
@@ -451,7 +479,8 @@ EXPERIENCES.earth = {
     scene.add(glare);
 
     // coupole et lumières de cabine
-    const cupola = buildCupola();
+    let cupola;
+    try { cupola = await buildNasaCupola(); } catch (e) { console.warn(e); cupola = buildCupola(); }
     cupola.traverse(o => { if (o.isMesh) o.renderOrder = 10; });
     scene.add(cupola);
     const sunLight = new THREE.DirectionalLight(0xfff4e8, 2.2);

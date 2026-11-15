@@ -7,7 +7,7 @@
     const ts = A.storage.get('aura-text', null);
     if (ts) document.documentElement.dataset.text = ts;
     const mand = A.store.state.mandatory || {};
-    A.videos.CAPS.forEach(c => { c.mandatory = !!mand[c.id]; });
+    A.videos.FILMS.forEach(c => { c.mandatory = !!mand[c.id]; });
     A.brain.init();
     A.shell.init();
     if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|anthropic|usercontent/.test(location.hostname)) {

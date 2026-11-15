@@ -1,0 +1,15 @@
+[
+{"js": "localStorage.clear(); location.reload(); 1", "wait": 1500},
+{"click": "[data-id='a2']", "wait": 1500},
+{"hash": "#/videos", "shot": "50_videos", "wait": 2500},
+{"js": "JSON.stringify({films: __aura.videos.FILMS.length, cartes: document.querySelectorAll('.view img[src^=\"videos/\"]').length})"},
+{"js": "__aura.videos.play('arrivee'); 1", "wait": 2500},
+{"js": "(async () => { const v = document.querySelector('.player video'); if (!v) return 'pas de lecteur'; v.muted = true; await v.play().catch(e => 0); await new Promise(r => setTimeout(r, 2500)); return JSON.stringify({t: v.currentTime.toFixed(1), dur: Math.round(v.duration), pistes: v.textTracks.length, chapitres: document.querySelectorAll('.player .chap').length}); })()", "wait": 500},
+{"shot": "51_lecteur", "wait": 800},
+{"js": "document.querySelector('.player [data-x]').click(); 1", "wait": 800},
+{"hash": "#/evasion", "shot": "52_evasion", "wait": 2500},
+{"hash": "#/simulations", "shot": "53_simulations", "wait": 2500},
+{"size": [390, 844]},
+{"hash": "#/videos", "shot": "54_videos_mobile", "wait": 2000},
+{"hash": "#/evasion", "shot": "55_evasion_mobile", "wait": 2000}
+]

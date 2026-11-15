@@ -7,7 +7,7 @@ import glob, os, shutil, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(ROOT, 'src')
-OUT = os.path.join(ROOT, 'dist')
+OUT = os.environ.get('AURA_IMMERSION_OUT') or os.path.join(ROOT, 'dist')   # autre dossier possible pour les essais
 
 css = open(os.path.join(SRC, 'style.css'), encoding='utf-8').read()
 body = open(os.path.join(SRC, 'body.html'), encoding='utf-8').read()
@@ -32,14 +32,14 @@ if r.returncode:
 if os.path.isdir(OUT):
     shutil.rmtree(OUT)
 os.makedirs(OUT)
-for d in ('textures', 'fonts', 'img'):
+for d in ('textures', 'fonts', 'img', 'models'):
     shutil.copytree(os.path.join(ROOT, 'assets', d), os.path.join(OUT, d))
 shutil.copytree(os.path.join(ROOT, 'lib'), os.path.join(OUT, 'lib'))
 
 head = ('<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
         '<title>AURA Immersion</title>\n'
-        '<meta name="description" content="Réalité virtuelle de l\'équipage AURA : quatre scènes de détente et quatre simulations médicales.">\n')
+        '<meta name="description" content="Réalité virtuelle de l\'équipage AURA : scènes de détente et simulations d\'urgence dans l\'ISS.">\n')
 importmap = '<script type="importmap">{"imports": {"three": "./lib/three/three.module.js", "three/addons/": "./lib/three/addons/"}}</script>'
 page = (head + f'<style>\n{css}\n</style>\n' + importmap + '\n</head>\n<body>\n' + body +
         '\n<script type="module">\n' + js + '\n</script>\n</body>\n</html>\n')

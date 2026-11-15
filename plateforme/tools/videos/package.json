@@ -1,0 +1,9 @@
+{
+  "name": "aura-films",
+  "private": true,
+  "description": "Fabrication des films AURA : images 3D, schémas animés, voix, sous-titres",
+  "dependencies": {
+    "@napi-rs/canvas": "^1.1.1",
+    "playwright": "^1.55.0"
+  }
+}

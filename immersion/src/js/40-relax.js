@@ -1,13 +1,19 @@
 /* ================= séances de détente ================= */
 const RELAX_CARDS = [
-  { key: 'earth', title: 'Terre vue de l\'ISS', text: 'La coupole de la station, la Terre qui défile à 7,7 km/s, de jour, au crépuscule et de nuit.',
-    long: 'Vous flottez dans la coupole de la station, à 420 km d\'altitude. La Terre passe sous les hublots en temps réel : un tour complet prend 93 minutes.', chips: ['Orbite réelle', 'Images NASA'], img: 'img/thumb-earth.jpg' },
+  { key: 'earth', title: 'Terre vue de la coupole', text: 'La vraie coupole de l\'ISS, d\'après le modèle 3D de la NASA, et la Terre qui défile à 7,7 km/s.',
+    long: 'Vous flottez dans la coupole de la station, à 420 km d\'altitude, entourée de ses sept hublots. La Terre passe en temps réel : un tour complet prend 93 minutes.', chips: ['Modèle NASA', 'Orbite réelle'], img: 'img/evasion/earth.webp' },
+  { key: 'lacrose', title: 'Lac Rose au coucher du soleil', text: 'Le lac Retba, près de Dakar : une eau rose, des tas de sel blanc et les pirogues des récolteurs.',
+    long: 'Sur la rive du lac Retba, à une trentaine de kilomètres de Dakar. Son eau, très salée, est colorée en rose par une micro-algue. Le soleil se couche à sa vitesse réelle.', chips: ['Sénégal', 'Coucher réel'], img: 'img/evasion/lacrose.webp' },
+  { key: 'savane', title: 'Savane aux baobabs', text: 'Fin d\'après-midi dans le Sine-Saloum : herbes dorées qui ondulent, baobabs, vautours qui planent.',
+    long: 'Au milieu des herbes sèches du Sine-Saloum, en fin d\'après-midi. Les baobabs ont perdu leurs feuilles pour la saison sèche ; le vent fait onduler la savane.', chips: ['Sénégal', 'Vent, grillons'], img: 'img/evasion/savane.webp' },
   { key: 'ocean', title: 'Océan au coucher du soleil', text: 'Au bout d\'une jetée, face à l\'Atlantique, pendant que le soleil descend vers l\'horizon.',
-    long: 'Au bout d\'une jetée en bois, face à l\'Atlantique. Le soleil se couche à sa vitesse réelle, les vagues frappent doucement les piliers.', chips: ['Vagues', 'Coucher réel'], img: 'img/thumb-ocean.jpg' },
+    long: 'Au bout d\'une jetée en bois, face à l\'Atlantique. Le soleil se couche à sa vitesse réelle, les vagues frappent doucement les piliers.', chips: ['Vagues', 'Coucher réel'], img: 'img/evasion/ocean.webp' },
   { key: 'lake', title: 'Lac de montagne au matin', text: 'Un lac calme entre des sommets enneigés, la brume qui monte de l\'eau, les oiseaux.',
-    long: 'Sur la rive d\'un lac de montagne, au lever du jour. La brume flotte au ras de l\'eau, les sommets s\'éclairent, les oiseaux chantent.', chips: ['Brume', 'Chants d\'oiseaux'], img: 'img/thumb-lake.jpg' },
+    long: 'Sur la rive d\'un lac de montagne, au lever du jour. La brume flotte au ras de l\'eau, les sommets s\'éclairent, les oiseaux chantent.', chips: ['Brume', 'Chants d\'oiseaux'], img: 'img/evasion/lake.webp' },
+  { key: 'aurore', title: 'Aurores boréales', text: 'Un lac sans vent sous des rideaux d\'aurore verts et pourpres, au pied de sommets enneigés.',
+    long: 'Une nuit d\'automne au bord d\'un lac, loin de toute lumière. Les aurores ondulent lentement au-dessus des sommets et se reflètent dans l\'eau immobile.', chips: ['Nuit', 'Lac miroir'], img: 'img/evasion/aurore.webp' },
   { key: 'desert', title: 'Désert de Lompoul la nuit', text: 'Sur la crête d\'une dune, sous la Voie lactée, avec un campement éclairé en contrebas.',
-    long: 'Sur la crête d\'une dune de Lompoul, entre Dakar et Saint-Louis. Le ciel est celui d\'une nuit de septembre, avec la Voie lactée et un mince croissant de lune.', chips: ['Ciel réel', 'Vent, grillons'], img: 'img/thumb-desert.jpg' }
+    long: 'Sur la crête d\'une dune de Lompoul, entre Dakar et Saint-Louis. Le ciel est celui d\'une nuit de septembre, avec la Voie lactée et un mince croissant de lune.', chips: ['Ciel réel', 'Vent, grillons'], img: 'img/evasion/desert.webp' }
 ];
 const STRESS = ['aucun', 'léger', 'moyen', 'fort', 'très fort'];
 function renderScale(el, onPick, value) {

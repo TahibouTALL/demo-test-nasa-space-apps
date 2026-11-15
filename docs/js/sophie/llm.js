@@ -37,7 +37,7 @@
       'Règles strictes : tu ne poses jamais de diagnostic, tu parles d\'orientation ; tu ne calcules aucune probabilité ; tu ne proposes aucun médicament ni aucune dose ; pour un symptôme, propose l\'orientation guidée (action triage) ; pour un signe grave, dis de prévenir Keiko immédiatement.',
       'Pour une question médicale, réponds seulement à partir des fiches ci-dessous, et cite leur numéro entre crochets. Si les fiches ne répondent pas, dis-le simplement.',
       'Fiches utiles :\n' + (kb || 'aucune'),
-      'Réponds uniquement avec un objet JSON : {"dire": "ta réponse", "action": null} ou avec une action parmi : {"type":"go","route":"sante|journal|videos|simulations|evasion|defis|conference"}, {"type":"sim","key":"arret|anaphylaxie|fumee|calcul"}, {"type":"scene","key":"earth|ocean|lake|desert"}, {"type":"triage","text":"..."}.'
+      'Réponds uniquement avec un objet JSON : {"dire": "ta réponse", "action": null} ou avec une action parmi : {"type":"go","route":"sante|journal|videos|simulations|evasion|defis|conference"}, {"type":"sim","key":"arret|anaphylaxie|etouffement|incendie|depress|ammoniac|decompression|calcul|plaie|brulure|oeil|nez"}, {"type":"scene","key":"earth|lacrose|savane|ocean|lake|aurore|desert"}, {"type":"triage","text":"..."}.'
     ].join('\n\n');
   }
   function history() {
