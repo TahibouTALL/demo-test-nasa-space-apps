@@ -288,7 +288,7 @@ svg.sophie { display: block; width: 100%; height: auto; overflow: visible; }
 .qmark svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
 .qmark svg.i { width: 20px; height: 20px; }
 .today-head { margin-top: 22px; color: var(--ink-3); font-size: .9rem; width: min(880px, 100%); display: flex; justify-content: space-between; }
-.doors { margin-top: 26px; display: flex; justify-content: center; gap: clamp(10px, 2.4vw, 26px); flex-wrap: wrap; width: min(980px, 100%); }
+.doors { margin-top: 26px; display: flex; justify-content: center; gap: clamp(10px, 2.4vw, 26px); flex-wrap: wrap; width: min(1080px, 100%); }
 .door { display: grid; justify-items: center; gap: 10px; width: 104px; background: none; border: 0; color: var(--ink-2); padding: 6px 0; border-radius: 22px; }
 .door .disc {
   --a: #79D8FF; --b: #3D8BFF;
@@ -982,3 +982,40 @@ html.coaching, html.coaching body { overflow: hidden; }
 #mAct { gap: 10px; }
 #mAct .btn { flex: 1; justify-content: center; }
 #mSteps { display: grid; gap: 4px; }
+
+/* ---------- Mon corps : une silhouette qui se touche ---------- */
+.corps-grid { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(0, 1.1fr); gap: 28px; align-items: start; margin-top: 6px; }
+.corps-stage { background: radial-gradient(55% 45% at 50% 38%, rgba(121, 216, 255, .1), transparent 70%), var(--hull); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 24px 18px 18px; display: grid; justify-items: center; gap: 14px; }
+.corps-fig { width: min(100%, 360px); height: auto; overflow: visible; }
+.corps-fig .org { cursor: pointer; outline: none; transition: transform .35s var(--spring), filter .25s; transform-box: fill-box; transform-origin: center; }
+.corps-fig .org:not(.skin) { opacity: .8; }
+.corps-fig .org:not(.skin):hover, .corps-fig .org.on { opacity: 1; }
+.corps-fig .org > path, .corps-fig .org > ellipse { stroke: #1A2156; stroke-width: .005; }
+.corps-fig .org .glow { opacity: .35; transition: opacity .25s; }
+.corps-fig .org:hover .glow, .corps-fig .org:focus-visible .glow { opacity: .8; }
+.corps-fig .org.on .glow { opacity: 1; }
+.corps-fig .org.on:not(.skin) { transform: scale(1.12); }
+.corps-fig .skin { transition: filter .25s; }
+.corps-fig .skin:hover, .corps-fig .skin:focus-visible { filter: brightness(1.12); }
+.corps-fig .skin.on { filter: brightness(1.3); }
+.corps-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; list-style: none; margin: 0; padding: 0; color: var(--ink-3); font-size: .84rem; }
+.corps-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.corps-side { display: grid; gap: 16px; min-width: 0; }
+.corps-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.corps-list button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--hull); color: var(--ink-2); font-weight: 600; font-size: .9rem; transition: border-color .2s, color .2s; }
+.corps-list button:hover { color: var(--ink); }
+.corps-list button i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.corps-list button[aria-pressed="true"] { color: var(--ink); border-color: var(--c); background: var(--hull-2); }
+.corps-detail { background: var(--hull); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px 24px 24px; display: grid; gap: 18px; box-shadow: inset 3px 0 0 var(--c); }
+.cd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cd-head h2 { font-size: 1.5rem; font-weight: 600; }
+.cd-st { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: .9rem; color: var(--c); }
+.cd-st i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.corps-detail dl { margin: 0; display: grid; }
+.corps-detail dt { color: var(--ink-3); font-size: .84rem; font-weight: 700; margin-top: 12px; }
+.corps-detail dt:first-child { margin-top: 0; }
+.corps-detail dd { margin: 3px 0 0; color: var(--ink-2); line-height: 1.5; }
+.corps-detail dd.you { color: var(--ink); font-weight: 600; }
+.corps-detail .src { color: var(--ink-3); font-size: .8rem; }
+@media (max-width: 860px) { .corps-grid { grid-template-columns: minmax(0, 1fr); } .corps-fig { width: min(100%, 290px); } }
+@media (prefers-reduced-motion: reduce) { .corps-fig .org { transition: none; } .corps-fig .org.on:not(.skin) { transform: none; } }

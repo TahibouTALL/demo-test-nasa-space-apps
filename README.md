@@ -31,8 +31,13 @@ faisable en apesanteur, tâches à venir, délai du sol). La médecin de bord va
   probable, les gestes à faire et une proposition de traitement vérifiée, envoyée à la médecin de bord.
 - **Urgences** : écran d'urgence avec les premiers gestes, médecin de bord prévenue, message prioritaire
   vers la Terre, et une suppléante quand la médecin de bord est elle-même la patiente.
-- **Mesures** : température, pouls au repos, saturation et sommeil, lus avec la référence personnelle
-  de chacun (filtre de Kalman) et l'effet connu du vol.
+- **Mesures** : température, pouls au repos, saturation, tension artérielle, glycémie à jeun (une fois
+  par semaine) et sommeil, lus avec la référence personnelle de chacun (filtre de Kalman) et l'effet
+  connu du vol (par exemple, la tension baisse de 8 à 10 mmHg en apesanteur). Pour chaque mesure, un
+  conseil pour bien la prendre.
+- **Mon corps** : une silhouette dont chaque partie se touche (cerveau, yeux, cœur, poumons,
+  digestion, reins, os, muscles, peau) : à quoi elle sert, ce que le vol lui fait, comment elle va
+  chez l'astronaute, et quoi faire. La couleur dit l'état d'un coup d'œil.
 - **Conférence de la semaine** : quinze minutes avec Sophie, à la voix ou par écrit, sur six sujets
   (alimentation, sommeil, exercice, élimination, charge de travail, moral). Le résumé est relu avant
   l'envoi, et la partie moral reste privée sans accord.

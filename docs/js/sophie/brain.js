@@ -238,6 +238,7 @@
     if (/\b(defis?|gamification|recompenses?|tour de la terre|objectif d equipage|ma serie)\b/.test(t)) return { say: 'Voici tes défis.', action: { type: 'go', route: 'defis' } };
     if (/\b(sport|seance|exercice physique)\b/.test(t)) return { say: 'Voici ton activité du jour.', action: { type: 'go', route: 'defis' } };
     // santé
+    if (/\b(mon corps|mes organes|le corps humain|silhouette)\b/.test(t)) return { say: 'Voici ton corps. Touche une partie pour voir à quoi elle sert et comment elle va.', action: { type: 'go', route: 'corps' } };
     if (/\b(sante|mesures?|constantes|signes vitaux)\b/.test(t)) return { say: 'Voici ta santé.', action: { type: 'go', route: 'sante' } };
     if (/\b(je ne me sens pas bien|je me sens mal|je suis malade|pas en forme|j ai un probleme|bobo)\b/.test(t)) return { say: 'Je suis là. Dis-moi ce qui ne va pas.', action: { type: 'triage', text: '' }, emotion: 'concerned' };
     // médecin de bord

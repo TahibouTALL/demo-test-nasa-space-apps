@@ -59,6 +59,7 @@
       const conf = S.confDue(id);
       const doors = [
         ['sante', 'health', 'Santé', '#7BE3C6', '#1E9E8C', S.measuredToday(id) ? 'tout va bien' : 'mesures du jour'],
+        ['corps', 'body', 'Mon corps', '#C3CCFF', '#4F5FD9', A.corps.summary(id)],
         ['conference', 'call', 'Conférence', '#C9BFFF', '#6B57E8', conf.today ? 'aujourd\'hui' : 'dans ' + A.plural(conf.inDays, 'jour')],
         ['journal', 'journal', 'Journal', '#FFC7E6', '#C2569E', 'privé'],
         ['videos', 'video', 'Vidéos', '#9FD8FF', '#2F6FE0', dm.video.done ? 'vue' : '1 à voir'],
